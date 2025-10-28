@@ -1,17 +1,10 @@
 // src/routes/service.routes.js
-const router = require('express').Router();
-const { list, create } = require('../controllers/service.controller');
-const { protect } = require('../middleware/auth');
-const Service = require('../models/Service');
+import express from "express";
+import { createService, getAllServices } from "../controllers/service.controller.js";
 
-(async () => {
-  try {
-    await Service.collection.createIndex({ title: 'text', description: 'text' });
-    await Service.collection.createIndex({ geo: '2dsphere' });
-  } catch {}
-})();
+const router = express.Router();
 
-router.get('/', list);
-router.post('/', protect, create);
+router.post("/", createService);
+router.get("/", getAllServices);
 
-module.exports = router;
+export default router;

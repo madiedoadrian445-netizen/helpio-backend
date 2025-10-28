@@ -1,24 +1,18 @@
 // src/models/Service.js
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
-const ServiceSchema = new mongoose.Schema(
+const serviceSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true, trim: true },
+    title: { type: String, required: true },
     description: { type: String, required: true },
-    price: { type: Number, required: true, min: 0 },
-    category: { type: String, index: true },
+    price: { type: Number, required: true },
+    category: { type: String },
     location: { type: String },
-    companyName: { type: String, trim: true }, // 👈 add this
     photos: [{ type: String }],
-    provider: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    avgRating: { type: Number, default: 0 },
-    reviewCount: { type: Number, default: 0 },
-    geo: {
-      type: { type: String, enum: ['Point'], default: 'Point' },
-      coordinates: { type: [Number], index: '2dsphere', default: undefined }
-    }
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model('Service', ServiceSchema);
+const Service = mongoose.model("Service", serviceSchema);
+export default Service;

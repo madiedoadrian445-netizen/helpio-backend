@@ -1,82 +1,36 @@
 // src/controllers/service.controller.js
-const Service = require('../models/Service');
+import Service from "../models/Service.js";
 
-exports.list = async (req, res, next) => {
+// Create a new service
+export const createService = async (req, res) => {
   try {
-    const {
-      q = '',
-      min,
-      max,
-      sort = 'new',          // new | plow | phigh | dist
-      lat,
-      lng,
-      radiusKm,              // e.g. 25
-    } = req.query;
+    const { title, description, price, category, location, photos } = req.body;
 
-    const priceFilter = {};
-    if (min !== undefined) priceFilter.$gte = Number(min);
-    if (max !== undefined) priceFilter.$lte = Number(max);
+    if (!title || !description || !price)
+      return res.status(400).json({ error: "Title, description, and price required" });
 
-    const matchStage = {};
-    if (Object.keys(priceFilter).length) matchStage.price = priceFilter;
-    if (q) matchStage.$text = { $search: q };
+    const service = await Service.create({
+      title,
+      description,
+      price,
+      category,
+      location,
+      photos,
+      userId: req.user?.id || null,
+    });
 
-    const pipeline = [];
-
-    // If we have lat/lng + radius, use $geoNear first in pipeline
-    const haveGeo = lat !== undefined && lng !== undefined && radiusKm !== undefined;
-
-    if (haveGeo) {
-      pipeline.push({
-        $geoNear: {
-          near: { type: 'Point', coordinates: [Number(lng), Number(lat)] },
-          distanceField: 'distanceMeters',
-          spherical: true,
-          maxDistance: Number(radiusKm) * 1000,
-          query: matchStage, // apply price/text filters inside geoNear
-        },
-      });
-    } else {
-      // No geo: normal match
-      if (Object.keys(matchStage).length) pipeline.push({ $match: matchStage });
-    }
-
-    // Sorting
-    let sortStage = {};
-    if (sort === 'plow') sortStage = { price: 1, createdAt: -1 };
-    else if (sort === 'phigh') sortStage = { price: -1, createdAt: -1 };
-    else if (sort === 'dist' && haveGeo) sortStage = { distanceMeters: 1 };
-    else sortStage = { createdAt: -1 }; // "new"
-
-    pipeline.push({ $sort: sortStage });
-
-    // (optional) limit/paging
-    pipeline.push({ $limit: 200 });
-
-    const items = await Service.aggregate(pipeline);
-
-    res.json(items);
-  } catch (e) { next(e); }
+    res.status(201).json(service);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
-exports.create = async (req, res, next) => {
+// Get all services
+export const getAllServices = async (req, res) => {
   try {
-    const {
-      title, description, price, category, location,
-      lat, lng, // NEW optional
-      photos = [],
-    } = req.body;
-
-    const payload = {
-      title, description, price, category, location, photos,
-      provider: req.user.id,
-    };
-
-    if (lat !== undefined && lng !== undefined) {
-      payload.geo = { type: 'Point', coordinates: [Number(lng), Number(lat)] };
-    }
-
-    const doc = await Service.create(payload);
-    res.status(201).json(doc);
-  } catch (e) { next(e); }
+    const services = await Service.find().sort({ createdAt: -1 });
+    res.status(200).json(services);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
