@@ -1,18 +1,10 @@
-// src/models/Service.js
-import mongoose from "mongoose";
+// src/server.js
+import app from "./app.js";
 
-const serviceSchema = new mongoose.Schema(
-  {
-    title: { type: String, required: true },
-    description: { type: String, required: true },
-    price: { type: Number, required: true },
-    category: { type: String },
-    location: { type: String },
-    photos: [{ type: String }],
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  },
-  { timestamps: true }
-);
+// ✅ Render automatically injects a PORT value
+// Use that if available, otherwise default to 4000 for local dev
+const PORT = process.env.PORT || 4000;
 
-const Service = mongoose.model("Service", serviceSchema);
-export default Service;
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Helpio API running on port ${PORT}`);
+});
