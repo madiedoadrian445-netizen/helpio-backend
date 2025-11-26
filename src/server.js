@@ -68,7 +68,7 @@ app.use(notFound);
 app.use(errorHandler);
 
 /* -------------------- Start Server -------------------- */
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 10000;
 
 connectDB().then(() => {
   app.listen(PORT, () => {
