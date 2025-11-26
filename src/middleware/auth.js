@@ -1,40 +1,55 @@
 // src/middleware/auth.js
-const jwt = require('jsonwebtoken');
+import jwt from "jsonwebtoken";
+import { User } from "../models/User.js";
 
-/**
- * auth(required = true, roles = [])
- * - required = true -> reject if no/invalid token
- * - required = false -> token optional; sets req.user if present/valid
- * - roles -> if provided, user.role must be in roles
- */
-exports.auth = (required = true, roles = []) => {
-  return (req, res, next) => {
-    const h = req.headers.authorization || '';
-    const token = h.startsWith('Bearer ') ? h.slice(7) : null;
+export const protect = async (req, res, next) => {
+  let token;
 
-    if (!token) {
-      if (required) return res.status(401).json({ error: 'No token' });
-      req.user = null;
-      return next();
-    }
-
+  // Look for token in Authorization header: "Bearer xxx"
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer ")
+  ) {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'devsecret');
-      req.user = { id: decoded.id, role: decoded.role };
+      token = req.headers.authorization.split(" ")[1];
 
-      if (roles.length && !roles.includes(req.user.role)) {
-        return res.status(403).json({ error: 'Forbidden' });
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      req.user = await User.findById(decoded.id).select("-password -refreshToken");
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: "User not found" });
       }
 
-      next();
-    } catch (e) {
-      if (required) return res.status(401).json({ error: 'Invalid token' });
-      req.user = null;
-      next();
+      return next();
+    } catch (err) {
+      console.error("Auth error:", err.message);
+      return res
+        .status(401)
+        .json({ success: false, message: "Not authorized, token failed" });
     }
-  };
+  }
+
+  return res
+    .status(401)
+    .json({ success: false, message: "Not authorized, no token" });
 };
 
-// For convenience if you ever want the old name:
-exports.protect = exports.auth(true);
-exports.requireRoles = (...roles) => exports.auth(true, roles);
+export const requireRole = (roles = []) => {
+  if (typeof roles === "string") roles = [roles];
+
+  return (req, res, next) => {
+    if (!req.user) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Not authorized, no user" });
+    }
+
+    if (!roles.includes(req.user.role)) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Forbidden: insufficient permissions" });
+    }
+
+    next();
+  };
+};
