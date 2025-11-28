@@ -20,6 +20,9 @@ import invoiceRoutes from "./routes/invoiceRoutes.js";
 /* -------------------- Initialize App -------------------- */
 const app = express();
 
+/* -------------------- REQUIRED FOR RENDER + CLOUDFLARE -------------------- */
+app.enable("trust proxy");   // << ⭐ THIS FIXES YOUR TOKEN ISSUE ⭐
+
 /* -------------------- Core Middleware -------------------- */
 app.use(
   cors({
@@ -58,7 +61,6 @@ app.use("/api/customers", customerRoutes);
 
 // Customer Timeline - nested cleanly
 app.use("/api/customers/timeline", customerTimelineRoutes);
-
 
 // Invoices
 app.use("/api/invoices", invoiceRoutes);
