@@ -1,218 +1,190 @@
 // src/controllers/listingController.js
 import { Listing } from "../models/Listing.js";
-import { Provider } from "../models/Provider.js";
-import { User } from "../models/User.js";
 
-/* ============================================================
-   FIND OR CREATE DEV USER + PROVIDER (fallback mode)
-==============================================================*/
-const getDevProvider = async () => {
-  let devUser = await User.findOne({ email: "__dev__@helpio.com" });
+export const getAllListings = async (req, res) => {
+  try {
+    const listings = await Listing.find().sort({ createdAt: -1 });
 
-  if (!devUser) {
-    devUser = await User.create({
-      name: "DEV USER",
-      email: "__dev__@helpio.com",
-      password: "devmode123",
+    return res.status(200).json({
+      success: true,
+      listings,
+    });
+
+  } catch (error) {
+    console.error("🔥 GET ALL LISTINGS ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching listings",
     });
   }
-
-  let devProvider = await Provider.findOne({ businessName: "__DEV_PROVIDER__" });
-
-  if (!devProvider) {
-    devProvider = await Provider.create({
-      user: devUser._id,
-      businessName: "__DEV_PROVIDER__",
-      phone: "0000000000",
-      email: "__dev__@helpio.com",
-      address: "123 Dev St",
-      city: "Miami",
-      state: "FL",
-      country: "USA",
-      category: "Developer",
-      description: "Auto-generated dev provider",
-      gallery: [],
-    });
-  }
-
-  return devProvider;
 };
 
-/* ============================================================
-   CREATE LISTING
-==============================================================*/
-export const createListing = async (req, res, next) => {
+export const getListingById = async (req, res) => {
   try {
-    console.log("📥 Incoming create listing request:", req.body);
+    const listing = await Listing.findById(req.params.id);
 
-    // 1️⃣ Get provider from auth or fallback to DEV provider
-    let provider = null;
-
-    if (req.user?._id) {
-      provider = await Provider.findOne({ user: req.user._id });
+    if (!listing) {
+      return res.status(404).json({
+        success: false,
+        message: "Listing not found",
+      });
     }
 
-    if (!provider) {
-      provider = await getDevProvider(); // DEV MODE fallback
-    }
+    return res.status(200).json({
+      success: true,
+      listing,
+    });
 
-    // 2️⃣ Normalize incoming data
+  } catch (error) {
+    console.error("🔥 GET LISTING BY ID ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error fetching listing",
+    });
+  }
+};
+
+export const getListingsByCategory = async (req, res) => {
+  try {
+    const listings = await Listing.find({
+      category: { $regex: req.params.cat, $options: "i" },
+    });
+
+    return res.status(200).json({
+      success: true,
+      listings,
+    });
+
+  } catch (error) {
+    console.error("🔥 CATEGORY LISTINGS ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error fetching category listings",
+    });
+  }
+};
+
+export const createListing = async (req, res) => {
+  try {
+    console.log("📥 Incoming BODY:", req.body);
+
     const {
       title,
       description,
       price,
       category,
-      images = [],
-      location = "",
+      images,
+      location,
     } = req.body;
 
-    if (!title || !description || !price || !category) {
-      return res.status(400).json({
+    if (!req.user?._id) {
+      return res.status(401).json({
         success: false,
-        message: "Missing required fields: title, description, price, category.",
+        message: "Provider authentication required",
       });
     }
 
-    const payload = {
-      provider: provider._id,
+    const listing = await Listing.create({
+      provider: req.user._id,             // logged in user
       title,
       description,
       price,
       category,
-      images,
+      images: images || [],
       location: {
-        city: location || "Miami",
-        state: "FL",
-        country: "USA",
+        city: location?.city || "",
+        state: location?.state || "",
+        country: location?.country || "",
       },
-    };
+      isActive: true,
+      views: 0,
+      favorites: 0,
+    });
 
-    // 3️⃣ Save listing
-    const listing = await Listing.create(payload);
-
-    console.log("✅ LISTING SAVED:", listing);
+    console.log("✅ LISTING STORED IN DB:", listing);
 
     return res.status(201).json({
       success: true,
-      listing,
+      listing,        // <<< THIS WAS MISSING BEFORE
     });
-  } catch (err) {
-    console.log("❌ createListing ERROR:", err);
-    next(err);
+
+  } catch (error) {
+    console.error("🔥 CREATE LISTING ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error creating listing",
+    });
   }
 };
 
-/* ============================================================
-   UPDATE LISTING
-==============================================================*/
-export const updateListing = async (req, res, next) => {
+export const updateListing = async (req, res) => {
   try {
     const listing = await Listing.findById(req.params.id);
+
     if (!listing) {
-      return res.status(404).json({ success: false, message: "Listing not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Listing not found",
+      });
     }
 
-    let provider;
-    if (req.user?._id) {
-      provider = await Provider.findOne({ user: req.user._id });
-    } else {
-      provider = await getDevProvider();
+    if (listing.provider.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to edit this listing",
+      });
     }
 
-    if (listing.provider.toString() !== provider._id.toString()) {
-      return res.status(403).json({ success: false, message: "Unauthorized" });
-    }
+    const updated = await Listing.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
 
-    Object.assign(listing, req.body);
-    await listing.save();
-
-    return res.json({ success: true, listing });
-  } catch (err) {
-    next(err);
-  }
-};
-
-/* ============================================================
-   GET ALL LISTINGS
-==============================================================*/
-export const getAllListings = async (req, res, next) => {
-  try {
-    const listings = await Listing.find()
-      .populate("provider")
-      .sort({ createdAt: -1 });
-
-    console.log("📤 Returning listings:", listings.length);
-
-    return res.json({
+    return res.status(200).json({
       success: true,
-      listings,
+      listing: updated,
     });
-  } catch (err) {
-    next(err);
+
+  } catch (error) {
+    console.error("🔥 UPDATE LISTING ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error updating listing",
+    });
   }
 };
 
-/* ============================================================
-   GET LISTINGS BY CATEGORY
-==============================================================*/
-export const getListingsByCategory = async (req, res, next) => {
-  try {
-    const listings = await Listing.find({ category: req.params.cat })
-      .populate("provider")
-      .sort({ createdAt: -1 });
-
-    return res.json({ success: true, listings });
-  } catch (err) {
-    next(err);
-  }
-};
-
-/* ============================================================
-   GET SINGLE LISTING
-==============================================================*/
-export const getListingById = async (req, res, next) => {
-  try {
-    const listing = await Listing.findById(req.params.id).populate("provider");
-
-    if (!listing) {
-      return res.status(404).json({ success: false, message: "Listing not found" });
-    }
-
-    listing.views += 1;
-    await listing.save();
-
-    return res.json({ success: true, listing });
-  } catch (err) {
-    next(err);
-  }
-};
-
-/* ============================================================
-   DELETE LISTING
-==============================================================*/
-export const deleteListing = async (req, res, next) => {
+export const deleteListing = async (req, res) => {
   try {
     const listing = await Listing.findById(req.params.id);
 
     if (!listing) {
-      return res.status(404).json({ success: false, message: "Listing not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Listing not found",
+      });
     }
 
-    let provider;
-    if (req.user?._id) {
-      provider = await Provider.findOne({ user: req.user._id });
-    } else {
-      provider = await getDevProvider();
-    }
-
-    if (listing.provider.toString() !== provider._id.toString()) {
-      return res.status(403).json({ success: false, message: "Unauthorized" });
+    if (listing.provider.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to delete this listing",
+      });
     }
 
     await listing.deleteOne();
 
-    return res.json({ success: true, message: "Listing removed" });
-  } catch (err) {
-    next(err);
+    return res.status(200).json({
+      success: true,
+      message: "Listing deleted",
+    });
+
+  } catch (error) {
+    console.error("🔥 DELETE LISTING ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error deleting listing",
+    });
   }
 };
