@@ -1,3 +1,4 @@
+// src/routes/listingRoutes.js
 import express from "express";
 import {
   createListing,
@@ -7,8 +8,8 @@ import {
   getListingById,
   deleteListing,
 } from "../controllers/listingController.js";
-import { protect } from "../middleware/authMiddleware.js";
 
+import { protect } from "../middleware/auth.js";   // ✅ FIXED PATH
 
 const router = express.Router();
 
