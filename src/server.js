@@ -16,6 +16,8 @@ import uploadRoutes from "./routes/uploadRoutes.js";
 import customerRoutes from "./routes/customerRoutes.js";
 import customerTimelineRoutes from "./routes/customerTimelineRoutes.js";
 import invoiceRoutes from "./routes/invoiceRoutes.js";
+import listingRoutes from "./routes/listingRoutes.js"
+
 
 /* -------------------- Initialize App -------------------- */
 const app = express();
@@ -55,6 +57,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/providers", providerRoutes);
 app.use("/api/listings", listingRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/listings", listingRoutes);
 
 // Customers
 app.use("/api/customers", customerRoutes);

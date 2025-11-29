@@ -1,4 +1,3 @@
-// src/routes/listingRoutes.js
 import express from "express";
 import {
   createListing,
@@ -8,27 +7,18 @@ import {
   getListingById,
   deleteListing,
 } from "../controllers/listingController.js";
-
-import { protect } from "../middleware/auth.js";
+import { protect } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-// Protected: Create listing
-router.post("/", protect, createListing);
-
-// Protected: Update listing
-router.put("/:id", protect, updateListing);
-
-// Protected: Delete listing
-router.delete("/:id", protect, deleteListing);
-
-// Public: Fetch listings
+// Public routes
 router.get("/", getAllListings);
-
-// Public: category filtering
+router.get("/:id", getListingById);
 router.get("/category/:cat", getListingsByCategory);
 
-// Public: get specific listing
-router.get("/:id", getListingById);
+// Protected actions
+router.post("/", protect, createListing);
+router.put("/:id", protect, updateListing);
+router.delete("/:id", protect, deleteListing);
 
 export default router;

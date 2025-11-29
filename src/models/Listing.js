@@ -9,39 +9,43 @@ const listingSchema = new mongoose.Schema(
       required: true,
     },
 
+    // Required core fields
     title: {
       type: String,
-      required: true,
+      required: [true, "Listing title is required"],
       trim: true,
     },
 
     description: {
       type: String,
-      required: true,
+      required: [true, "Listing description is required"],
     },
 
     price: {
       type: Number,
-      required: true,
+      required: [true, "Listing price is required"],
     },
 
     category: {
       type: String,
-      required: true,
+      required: [true, "Category is required"],
       trim: true,
     },
 
+    // Your app sends photos array → normalize to `images`
     images: {
-      type: [String], // array of Cloudinary URLs
+      type: [String], // Cloudinary URLs later — local file URIs for now
       default: [],
     },
 
+    // Location block — perfect for scaling later
     location: {
-      city: String,
-      state: String,
-      country: String,
+      city: { type: String, default: "Miami" },
+      state: { type: String, default: "FL" },
+      country: { type: String, default: "USA" },
     },
 
+    // Engagement / stats
     isActive: {
       type: Boolean,
       default: true,

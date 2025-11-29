@@ -1,55 +1,79 @@
 // src/config/api.js
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const API_BASE_URL = "https://helpio-backend.onrender.com";
 
+/* ------------------------------------------------------------------
+   Automatically loads the auth token from AsyncStorage for all calls
+-------------------------------------------------------------------*/
+async function getAuthHeader(passedToken) {
+  const token = passedToken || (await AsyncStorage.getItem("authToken"));
+
+  return token
+    ? { Authorization: `Bearer ${token}` }
+    : {};
+}
+
 export const api = {
-  async get(path, token = null) {
+  async get(path, passedToken = null) {
+    const headers = {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(await getAuthHeader(passedToken)),
+    };
+
     const res = await fetch(`${API_BASE_URL}${path}`, {
       method: "GET",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      }
+      headers,
     });
+
     return res.json();
   },
 
-  async post(path, body = {}, token = null) {
+  async post(path, body = {}, passedToken = null) {
+    const headers = {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(await getAuthHeader(passedToken)),
+    };
+
     const res = await fetch(`${API_BASE_URL}${path}`, {
       method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify(body)
+      headers,
+      body: JSON.stringify(body),
     });
+
     return res.json();
   },
 
-  async put(path, body = {}, token = null) {
+  async put(path, body = {}, passedToken = null) {
+    const headers = {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(await getAuthHeader(passedToken)),
+    };
+
     const res = await fetch(`${API_BASE_URL}${path}`, {
       method: "PUT",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify(body)
+      headers,
+      body: JSON.stringify(body),
     });
+
     return res.json();
   },
 
-  async del(path, token = null) {
+  async del(path, passedToken = null) {
+    const headers = {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(await getAuthHeader(passedToken)),
+    };
+
     const res = await fetch(`${API_BASE_URL}${path}`, {
       method: "DELETE",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      }
+      headers,
     });
+
     return res.json();
-  }
+  },
 };
