@@ -16,14 +16,12 @@ import uploadRoutes from "./routes/uploadRoutes.js";
 import customerRoutes from "./routes/customerRoutes.js";
 import customerTimelineRoutes from "./routes/customerTimelineRoutes.js";
 import invoiceRoutes from "./routes/invoiceRoutes.js";
-import listingRoutes from "./routes/listingRoutes.js"
-
 
 /* -------------------- Initialize App -------------------- */
 const app = express();
 
 /* -------------------- REQUIRED FOR RENDER + CLOUDFLARE -------------------- */
-app.enable("trust proxy");   // << ⭐ THIS FIXES YOUR TOKEN ISSUE ⭐
+app.enable("trust proxy");   // << ⭐ Important Fix
 
 /* -------------------- Core Middleware -------------------- */
 app.use(
@@ -46,23 +44,20 @@ app.get("/", (req, res) => {
   res.send("✅ Helpio backend is live");
 });
 
-// Dedicated health check for Render and mobile apps
 app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
 /* -------------------- API Routes -------------------- */
-
 app.use("/api/auth", authRoutes);
 app.use("/api/providers", providerRoutes);
 app.use("/api/listings", listingRoutes);
 app.use("/api/upload", uploadRoutes);
-app.use("/api/listings", listingRoutes);
 
 // Customers
 app.use("/api/customers", customerRoutes);
 
-// Customer Timeline - nested cleanly
+// Customer Timeline
 app.use("/api/customers/timeline", customerTimelineRoutes);
 
 // Invoices
