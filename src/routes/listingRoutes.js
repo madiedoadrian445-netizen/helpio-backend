@@ -7,7 +7,8 @@ import {
   getListingById,
   deleteListing,
 } from "../controllers/listingController.js";
-import { protect } from "../middlewares/authMiddleware.js";
+import { protect } from "../middleware/authMiddleware.js";
+
 
 const router = express.Router();
 
