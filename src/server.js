@@ -57,11 +57,12 @@ app.use("/api/upload", uploadRoutes);
 // Customers
 app.use("/api/customers", customerRoutes);
 
-// Customer Timeline
+// Customer Timeline (FIXED)
 app.use("/api/customers/timeline", customerTimelineRoutes);
 
 // Invoices
 app.use("/api/invoices", invoiceRoutes);
+
 
 /* -------------------- Error Handling -------------------- */
 app.use(notFound);

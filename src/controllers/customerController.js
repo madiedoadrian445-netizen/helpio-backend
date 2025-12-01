@@ -3,13 +3,17 @@ import { Customer } from "../models/Customer.js";
 import { Provider } from "../models/Provider.js";
 import { CustomerTimeline } from "../models/CustomerTimeline.js";
 
-
-
+/* -----------------------------------------------------
+   Helper: get providerId from logged-in user
+------------------------------------------------------ */
 const getProviderId = async (userId) => {
   const provider = await Provider.findOne({ user: userId });
   return provider?._id;
 };
 
+/* -----------------------------------------------------
+   CREATE CUSTOMER
+------------------------------------------------------ */
 export const createCustomer = async (req, res, next) => {
   try {
     const providerId = await getProviderId(req.user._id);
@@ -26,8 +30,9 @@ export const createCustomer = async (req, res, next) => {
       ...req.body,
     });
 
-    // TIMELINE: auto-log new client
-    await Timeline.create({
+    // TIMELINE LOG: NEW CLIENT
+    await CustomerTimeline.create({
+      provider: providerId,
       customer: customer._id,
       type: "note",
       title: "New client added",
@@ -43,9 +48,13 @@ export const createCustomer = async (req, res, next) => {
   }
 };
 
+/* -----------------------------------------------------
+   GET ALL CUSTOMERS FOR THIS PROVIDER
+------------------------------------------------------ */
 export const getMyCustomers = async (req, res, next) => {
   try {
     const providerId = await getProviderId(req.user._id);
+
     const customers = await Customer.find({ provider: providerId }).sort({
       createdAt: -1,
     });
@@ -59,6 +68,9 @@ export const getMyCustomers = async (req, res, next) => {
   }
 };
 
+/* -----------------------------------------------------
+   GET CUSTOMER BY ID
+------------------------------------------------------ */
 export const getCustomerById = async (req, res, next) => {
   try {
     const customer = await Customer.findById(req.params.id);
@@ -79,6 +91,9 @@ export const getCustomerById = async (req, res, next) => {
   }
 };
 
+/* -----------------------------------------------------
+   UPDATE CUSTOMER
+------------------------------------------------------ */
 export const updateCustomer = async (req, res, next) => {
   try {
     const customer = await Customer.findById(req.params.id);
@@ -93,8 +108,9 @@ export const updateCustomer = async (req, res, next) => {
     Object.assign(customer, req.body);
     await customer.save();
 
-    // TIMELINE: auto-log update
-    await Timeline.create({
+    // TIMELINE LOG: CLIENT UPDATED
+    await CustomerTimeline.create({
+      provider: customer.provider,
       customer: customer._id,
       type: "note",
       title: "Client updated",
@@ -110,6 +126,9 @@ export const updateCustomer = async (req, res, next) => {
   }
 };
 
+/* -----------------------------------------------------
+   DELETE CUSTOMER
+------------------------------------------------------ */
 export const deleteCustomer = async (req, res, next) => {
   try {
     const customer = await Customer.findById(req.params.id);
@@ -122,12 +141,13 @@ export const deleteCustomer = async (req, res, next) => {
     }
 
     const deletedName = customer.name || "Client";
+    const providerId = customer.provider;
 
-    // Delete customer
     await customer.deleteOne();
 
-    // 🔥 TIMELINE: auto-log deletion
-    await Timeline.create({
+    // TIMELINE LOG: CLIENT DELETED
+    await CustomerTimeline.create({
+      provider: providerId,
       customer: customer._id,
       type: "note",
       title: "Client deleted",
