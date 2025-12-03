@@ -54,7 +54,7 @@ app.use("/api/providers", providerRoutes);
 app.use("/api/listings", listingRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/customers", customerRoutes);
-app.use("/api/customers/timeline", customerTimelineRoutes);
+app.use("/api/customers", customerTimelineRoutes);
 app.use("/api/invoices", invoiceRoutes);
 
 /* -------------------- Error Handling -------------------- */

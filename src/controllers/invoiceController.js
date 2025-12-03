@@ -1,4 +1,4 @@
-import { Invoice } from "../models/Invoice.js";
+import Invoice from "../models/Invoice.js";
 import { CustomerTimeline } from "../models/CustomerTimeline.js";
 import { Provider } from "../models/Provider.js";
 import Client from "../models/Client.js"; // ⭐ Correct model
