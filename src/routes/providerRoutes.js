@@ -1,4 +1,3 @@
-// src/routes/providerRoutes.js
 import express from "express";
 import {
   createProvider,
@@ -9,22 +8,28 @@ import {
 } from "../controllers/providerController.js";
 
 import { protect } from "../middleware/auth.js";
+import { getDashboardStats } from "../controllers/crmDashboardController.js";
 
 const router = express.Router();
 
-// Create provider profile
+/* Debug test route */
+router.get("/__routes_check", (req, res) => {
+  res.json({
+    ok: true,
+    message: "THIS IS THE REAL providerRoutes.js",
+    timestamp: Date.now()
+  });
+});
+
+/* CRM must be first */
+router.get("/crm/dashboard", protect, getDashboardStats);
+
 router.post("/", protect, createProvider);
-
-// Update provider
 router.put("/", protect, updateProvider);
-
-// Get your own provider profile
 router.get("/me", protect, getMyProviderProfile);
 
-// Public: get all providers
 router.get("/", getAllProviders);
 
-// Public: get provider by ID
 router.get("/:id", getProviderById);
 
 export default router;

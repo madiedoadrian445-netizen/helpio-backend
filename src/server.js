@@ -10,7 +10,7 @@ import { notFound, errorHandler } from "./middleware/errorHandler.js";
 
 /* -------------------- Import Routes -------------------- */
 import authRoutes from "./routes/auth.routes.js";
-import providerRoutes from "./routes/providerRoutes.js";
+import providerRoutes from "./src/routes/providerRoutes.js";
 import listingRoutes from "./routes/listingRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import customerRoutes from "./routes/customerRoutes.js";

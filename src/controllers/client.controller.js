@@ -115,15 +115,17 @@ export const getClients = async (req, res) => {
       Client.countDocuments(filter),
     ]);
 
-    return res.status(200).json({
-      data: clients,
-      pagination: {
-        total,
-        page: pageNum,
-        pages: Math.ceil(total / limitNum),
-        limit: limitNum,
-      },
-    });
+   return res.status(200).json({
+  success: true,
+  clients, // <-- what your app reads
+  pagination: {
+    total,
+    page: pageNum,
+    pages: Math.ceil(total / limitNum),
+    limit: limitNum,
+  },
+});
+
   } catch (err) {
     console.error("❌ Error fetching clients:", err);
     return res.status(500).json({ message: "Server error fetching clients" });

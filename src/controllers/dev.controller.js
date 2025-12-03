@@ -4,10 +4,10 @@ import { User } from "../models/User.js";
 import { Provider } from "../models/Provider.js";
 
 /* --------------------------------------------------------
-   Helper: Generate access + refresh tokens
+   SIGN JWT (NOW includes providerId!)
 -------------------------------------------------------- */
-const signToken = (id, expiresIn) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn });
+const signToken = (payload, expiresIn) =>
+  jwt.sign(payload, process.env.JWT_SECRET, { expiresIn });
 
 export const devLogin = async (req, res) => {
   try {
@@ -42,13 +42,22 @@ export const devLogin = async (req, res) => {
     }
 
     /* --------------------------------------------------------
-       3. GENERATE TOKENS
+       3. JWT PAYLOAD (THIS is the ACTUAL fix)
     -------------------------------------------------------- */
-    const accessToken = signToken(user._id, "7d");
-    const refreshToken = signToken(user._id, "14d");
+    const jwtPayload = {
+      id: user._id,
+      providerId: provider._id,       // ⭐ REQUIRED ⭐
+      role: user.role,
+    };
 
     /* --------------------------------------------------------
-       4. ADD providerId TO USER PAYLOAD (like real login)
+       4. GENERATE TOKENS (with providerId inside)
+    -------------------------------------------------------- */
+    const accessToken = signToken(jwtPayload, "7d");
+    const refreshToken = signToken(jwtPayload, "14d");
+
+    /* --------------------------------------------------------
+       5. USER PAYLOAD FOR FRONTEND (display)
     -------------------------------------------------------- */
     const userPayload = {
       id: user._id,
@@ -60,7 +69,7 @@ export const devLogin = async (req, res) => {
     };
 
     /* --------------------------------------------------------
-       5. RETURN SAME FORMAT AS REAL LOGIN
+       6. SEND RESPONSE
     -------------------------------------------------------- */
     return res.json({
       success: true,
