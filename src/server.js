@@ -10,7 +10,7 @@ import { notFound, errorHandler } from "./middleware/errorHandler.js";
 
 /* -------------------- Import Routes -------------------- */
 import authRoutes from "./routes/auth.routes.js";
-import providerRoutes from "./src/routes/providerRoutes.js";
+import providerRoutes from "./routes/providerRoutes.js";   // ✅ FIXED
 import listingRoutes from "./routes/listingRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import customerRoutes from "./routes/customerRoutes.js";
@@ -21,7 +21,7 @@ import invoiceRoutes from "./routes/invoiceRoutes.js";
 const app = express();
 
 /* -------------------- REQUIRED FOR RENDER + CLOUDFLARE -------------------- */
-app.enable("trust proxy");   // << ⭐ Important Fix
+app.enable("trust proxy");
 
 /* -------------------- Core Middleware -------------------- */
 app.use(
@@ -53,16 +53,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/providers", providerRoutes);
 app.use("/api/listings", listingRoutes);
 app.use("/api/upload", uploadRoutes);
-
-// Customers
 app.use("/api/customers", customerRoutes);
-
-// Customer Timeline (FIXED)
 app.use("/api/customers/timeline", customerTimelineRoutes);
-
-// Invoices
 app.use("/api/invoices", invoiceRoutes);
-
 
 /* -------------------- Error Handling -------------------- */
 app.use(notFound);
