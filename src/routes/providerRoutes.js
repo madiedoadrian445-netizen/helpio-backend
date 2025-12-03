@@ -8,28 +8,24 @@ import {
 } from "../controllers/providerController.js";
 
 import { protect } from "../middleware/auth.js";
-import { getDashboardStats } from "../controllers/crmDashboardController.js";
 
 const router = express.Router();
 
-/* Debug test route */
-router.get("/__routes_check", (req, res) => {
-  res.json({
-    ok: true,
-    message: "THIS IS THE REAL providerRoutes.js",
-    timestamp: Date.now()
-  });
-});
-
-/* CRM must be first */
-router.get("/crm/dashboard", protect, getDashboardStats);
-
+/* -----------------------------
+   PROVIDER CRUD
+------------------------------ */
 router.post("/", protect, createProvider);
 router.put("/", protect, updateProvider);
 router.get("/me", protect, getMyProviderProfile);
 
+/* -----------------------------
+   PUBLIC ROUTES
+------------------------------ */
 router.get("/", getAllProviders);
 
+/* -----------------------------
+   MUST ALWAYS BE LAST
+------------------------------ */
 router.get("/:id", getProviderById);
 
 export default router;
