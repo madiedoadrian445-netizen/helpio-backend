@@ -6,46 +6,81 @@ const listingSchema = new mongoose.Schema(
     provider: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Provider",
-      required: true,
+      required: [true, "Provider is required"],
+      index: true,
     },
 
-    // Required core fields
+    /* -----------------------------------------------------
+       TITLE (Required, trimmed, safe length)
+    ------------------------------------------------------ */
     title: {
       type: String,
       required: [true, "Listing title is required"],
       trim: true,
+      minlength: [3, "Title must be at least 3 characters"],
+      maxlength: [120, "Title cannot exceed 120 characters"],
     },
 
+    /* -----------------------------------------------------
+       DESCRIPTION (Required, safe length)
+    ------------------------------------------------------ */
     description: {
       type: String,
       required: [true, "Listing description is required"],
+      minlength: [10, "Description must be at least 10 characters"],
+      maxlength: [3000, "Description cannot exceed 3000 characters"],
     },
 
+    /* -----------------------------------------------------
+       PRICE (Required, must be a valid number)
+    ------------------------------------------------------ */
     price: {
       type: Number,
       required: [true, "Listing price is required"],
+      min: [0, "Price cannot be negative"],
+      validate: {
+        validator: (v) => typeof v === "number" && !Number.isNaN(v),
+        message: "Price must be a valid number",
+      },
     },
 
+    /* -----------------------------------------------------
+       CATEGORY
+    ------------------------------------------------------ */
     category: {
       type: String,
       required: [true, "Category is required"],
       trim: true,
+      minlength: [2, "Category must be at least 2 characters"],
+      maxlength: [60, "Category cannot exceed 60 characters"],
+      index: true,
     },
 
-    // Your app sends photos array → normalize to `images`
+    /* -----------------------------------------------------
+       IMAGES — must be array of strings
+    ------------------------------------------------------ */
     images: {
-      type: [String], // Cloudinary URLs later — local file URIs for now
+      type: [String],
       default: [],
+      validate: {
+        validator: (arr) =>
+          Array.isArray(arr) && arr.every((url) => typeof url === "string"),
+        message: "Images must be an array of strings",
+      },
     },
 
-    // Location block — perfect for scaling later
+    /* -----------------------------------------------------
+       LOCATION (Safe defaults)
+    ------------------------------------------------------ */
     location: {
       city: { type: String, default: "Miami" },
       state: { type: String, default: "FL" },
       country: { type: String, default: "USA" },
     },
 
-    // Engagement / stats
+    /* -----------------------------------------------------
+       SYSTEM FIELDS
+    ------------------------------------------------------ */
     isActive: {
       type: Boolean,
       default: true,
@@ -54,14 +89,22 @@ const listingSchema = new mongoose.Schema(
     views: {
       type: Number,
       default: 0,
+      min: 0,
     },
 
     favorites: {
       type: Number,
       default: 0,
+      min: 0,
     },
   },
   { timestamps: true }
 );
+
+/* ---------------------------------------------------------
+   INDEXES (Feed speed boost + search readiness)
+---------------------------------------------------------- */
+listingSchema.index({ category: 1, createdAt: -1 });
+listingSchema.index({ title: "text", description: "text" });
 
 export const Listing = mongoose.model("Listing", listingSchema);

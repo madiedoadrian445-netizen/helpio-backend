@@ -3,6 +3,12 @@ import jwt from "jsonwebtoken";
 import { User } from "../models/User.js";
 import { Provider } from "../models/Provider.js";
 
+import { detectImpossibleTravel } from "../utils/impossibleTravel.js";          // B22-A
+import { recordDeviceFingerprint } from "../utils/deviceFingerprint.js";       // B22-B
+import { analyzeIpReputationAndVelocity } from "../utils/ipReputation.js";     // B22-C
+import { checkPasswordCompromised } from "../utils/compromisedPassword.js";    // ⭐ B22-E
+import { SuspiciousEvent } from "../models/SuspiciousEvent.js";               // B22-E logging
+
 /* ----------------------- TOKEN HELPERS ----------------------- */
 
 const generateAccessToken = (userId) => {
@@ -38,7 +44,40 @@ export const register = async (req, res, next) => {
       });
     }
 
-    // Create user (default to provider)
+    /* ----------------------------------------------------------
+       ⭐ B22-E — Compromised Password Detection
+    ---------------------------------------------------------- */
+    try {
+      const result = await checkPasswordCompromised(password);
+
+      if (result.compromised) {
+        await SuspiciousEvent.create({
+          user: null,
+          type: "compromised_password",
+          riskScore: result.score,
+          severity: result.severity,
+          ip: req.ip,
+          userAgent: req.headers["user-agent"],
+          metadata: {
+            email,
+            reason: result.reason,
+            phase: "register",
+            source: result.source,
+          },
+        });
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "This password is too weak or appears in public breach lists. Please choose a stronger password.",
+          reason: result.reason,
+        });
+      }
+    } catch (err) {
+      console.error("Compromised password check failed:", err.message);
+    }
+
+    // Create user (default role: provider)
     const user = await User.create({
       name,
       email,
@@ -46,7 +85,7 @@ export const register = async (req, res, next) => {
       role: role || "provider",
     });
 
-    // 🔥 Auto-create Provider profile linked to this user
+    // Auto-create Provider profile
     const provider = await Provider.create({
       user: user._id,
       businessName: name,
@@ -93,12 +132,42 @@ export const login = async (req, res, next) => {
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
-
     user.refreshToken = refreshToken;
     await user.save();
 
-    // Optional: look up provider profile (if exists)
     const provider = await Provider.findOne({ user: user._id }).select("_id");
+
+    /* ----------------------------------------------------------
+       ⭐ Security Telemetry (non-blocking)
+    ---------------------------------------------------------- */
+
+    // B22-A Impossible Travel
+    detectImpossibleTravel({
+      userId: user._id,
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+      email: user.email,
+    }).catch((err) =>
+      console.error("Impossible travel error:", err.message)
+    );
+
+    // B22-B Device Fingerprint
+    recordDeviceFingerprint({
+      userId: user._id,
+      email: user.email,
+      req,
+    }).catch((err) =>
+      console.error("Device fingerprint error:", err.message)
+    );
+
+    // B22-C IP Reputation & Velocity Engine
+    analyzeIpReputationAndVelocity({
+      userId: user._id,
+      email: user.email,
+      ip: req.ip,
+    }).catch((err) =>
+      console.error("IP reputation/velocity error:", err.message)
+    );
 
     return res.json({
       success: true,
@@ -123,7 +192,6 @@ export const login = async (req, res, next) => {
 
 export const getMe = async (req, res, next) => {
   try {
-    // req.user is set in protect middleware
     return res.json({
       success: true,
       user: req.user,
@@ -159,7 +227,6 @@ export const refreshToken = async (req, res, next) => {
 
     const newAccessToken = generateAccessToken(user._id);
     const newRefreshToken = generateRefreshToken(user._id);
-
     user.refreshToken = newRefreshToken;
     await user.save();
 
@@ -190,8 +257,8 @@ export const logout = async (req, res, next) => {
           user.refreshToken = null;
           await user.save();
         }
-      } catch (err) {
-        // ignore token errors on logout
+      } catch {
+        // ignore
       }
     }
 

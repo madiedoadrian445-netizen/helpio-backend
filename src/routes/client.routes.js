@@ -1,5 +1,8 @@
 // src/routes/client.routes.js
 import express from "express";
+import { protect } from "../middleware/auth.js";
+import { validateObjectId } from "../middleware/validateObjectId.js";
+
 import {
   createClient,
   getClients,
@@ -13,26 +16,57 @@ import {
 
 const router = express.Router();
 
-// LIST + SEARCH + FILTER + PAGINATION
+/* -------------------------------------------------------
+   ALL CRM ROUTES REQUIRE AUTHENTICATION
+-------------------------------------------------------- */
+router.use(protect);
+
+/* -------------------------------------------------------
+   LIST + SEARCH + FILTER + PAGINATION
+   GET /clients
+-------------------------------------------------------- */
 router.get("/", getClients);
 
-// CREATE
+/* -------------------------------------------------------
+   CREATE CLIENT
+   POST /clients
+-------------------------------------------------------- */
 router.post("/", createClient);
 
-// SINGLE CLIENT
-router.get("/:id", getClientById);
+/* -------------------------------------------------------
+   GET SINGLE CLIENT
+   GET /clients/:id
+-------------------------------------------------------- */
+router.get("/:id", validateObjectId("id"), getClientById);
 
-// UPDATE
-router.patch("/:id", updateClient);
+/* -------------------------------------------------------
+   UPDATE CLIENT
+   PATCH /clients/:id
+-------------------------------------------------------- */
+router.patch("/:id", validateObjectId("id"), updateClient);
 
-// ARCHIVE / UNARCHIVE
-router.post("/:id/archive", archiveClient);
-router.post("/:id/unarchive", unarchiveClient);
+/* -------------------------------------------------------
+   ARCHIVE / UNARCHIVE
+   POST /clients/:id/archive
+   POST /clients/:id/unarchive
+-------------------------------------------------------- */
+router.post("/:id/archive", validateObjectId("id"), archiveClient);
+router.post("/:id/unarchive", validateObjectId("id"), unarchiveClient);
 
-// DELETE (hard delete – optional)
-router.delete("/:id", deleteClient);
+/* -------------------------------------------------------
+   DELETE CLIENT (hard delete)
+   DELETE /clients/:id
+-------------------------------------------------------- */
+router.delete("/:id", validateObjectId("id"), deleteClient);
 
-// TIMELINE
-router.post("/:id/timeline", addTimelineEntry);
+/* -------------------------------------------------------
+   TIMELINE ENTRY
+   POST /clients/:id/timeline
+-------------------------------------------------------- */
+router.post(
+  "/:id/timeline",
+  validateObjectId("id"),
+  addTimelineEntry
+);
 
 export default router;
