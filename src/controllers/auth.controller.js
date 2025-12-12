@@ -1,4 +1,3 @@
-// src/controllers/auth.controller.js
 import jwt from "jsonwebtoken";
 import { User } from "../models/User.js";
 import { Provider } from "../models/Provider.js";
@@ -36,7 +35,9 @@ export const register = async (req, res, next) => {
       });
     }
 
-    const existing = await User.findOne({ email });
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
       return res.status(409).json({
         success: false,
@@ -59,7 +60,7 @@ export const register = async (req, res, next) => {
           ip: req.ip,
           userAgent: req.headers["user-agent"],
           metadata: {
-            email,
+            email: normalizedEmail,
             reason: result.reason,
             phase: "register",
             source: result.source,
@@ -80,7 +81,7 @@ export const register = async (req, res, next) => {
     // Create user (default role: provider)
     const user = await User.create({
       name,
-      email,
+      email: normalizedEmail,
       password,
       role: role || "provider",
     });
@@ -89,7 +90,7 @@ export const register = async (req, res, next) => {
     const provider = await Provider.create({
       user: user._id,
       businessName: name,
-      email,
+      email: normalizedEmail,
     });
 
     const accessToken = generateAccessToken(user._id);
@@ -123,7 +124,13 @@ export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // ⭐ CRITICAL FIX: explicitly select password
+    const user = await User.findOne({ email: normalizedEmail }).select(
+      "+password"
+    );
+
     if (!user || !(await user.matchPassword(password))) {
       return res
         .status(401)
