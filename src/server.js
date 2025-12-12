@@ -75,7 +75,9 @@ app.disable("x-powered-by");
 /* ---------------------------------------------------------
    TRUST PROXY (Required for Stripe Terminal + CF + Render)
 ---------------------------------------------------------- */
-app.enable("trust proxy");
+// Trust ONLY the first proxy (Render / CF)
+app.set("trust proxy", 1);
+
 
 /* ---------------------------------------------------------
    ⭐ STRIPE WEBHOOK — MUST COME BEFORE express.json()
