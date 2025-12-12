@@ -294,6 +294,11 @@ app.use("/api/terminal-payments", terminalPaymentRoutes);
 // Expo-friendly simulated Tap-to-Pay
 app.use("/api/terminal-payments-sim", terminalPaymentSimRoutes);
 
+app.use((req, res, next) => {
+  console.log("➡️", req.method, req.originalUrl);
+  next();
+});
+
 
 /* ⭐ NEW — FULL ADMIN CRON SUITE */
 app.use("/api/admin/cron", adminCronRoutes);
