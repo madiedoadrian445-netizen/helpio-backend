@@ -1,5 +1,6 @@
 // src/routes/terminalPaymentSimRoutes.js
 import express from "express";
+import { logInfo } from "../utils/logger.js";
 
 const router = express.Router();
 
@@ -20,11 +21,15 @@ router.post("/simulate", async (req, res) => {
 
     const fakeId = "sim_" + Math.random().toString(36).substring(2, 12);
 
-    console.log("💳 Simulated Tap-to-Pay", {
-      amount,
-      currency,
-      fakeId,
-    });
+   logInfo("terminal.simulated_payment", {
+  requestId: req.requestId,
+  amount,
+  currency: currency || "usd",
+  paymentIntentId: fakeId,
+  mode: "simulated",
+  source: "helpio_pay",
+});
+
 
     return res.json({
       success: true,
