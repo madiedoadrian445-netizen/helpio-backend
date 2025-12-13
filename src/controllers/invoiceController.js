@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import Invoice from "../models/Invoice.js";
 import { CustomerTimeline } from "../models/CustomerTimeline.js";
 import Provider from "../models/Provider.js";
-import Client from "../models/Client.js";
+import Customer from "../models/Customer.js";
 import LedgerEntry from "../models/LedgerEntry.js";
 import { calculateFees } from "../utils/feeCalculator.js";
 import {
@@ -29,6 +29,7 @@ const safeNum = (n) => {
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
+
 const sendError = (res, status, message) =>
   res.status(status).json({ success: false, message });
 
@@ -51,10 +52,13 @@ const getProviderForUser = async (userId) => {
 export const createInvoice = async (req, res, next) => {
   try {
     const provider = await getProviderForUser(req.user?._id);
-    if (!provider) return sendError(res, 404, "Provider profile not found");
+    if (!provider) {
+      return sendError(res, 404, "Provider profile not found");
+    }
 
     const {
       customer,
+      customerId,
       items,
       subtotal,
       tax,
@@ -69,16 +73,29 @@ export const createInvoice = async (req, res, next) => {
       notes,
     } = req.body;
 
-    if (!customer || !isValidId(customer))
-      return sendError(res, 400, "Valid customer ID is required");
+    // ✅ Support both customer + customerId
+    const customerRef = customer || customerId;
 
-    const client = await Client.findById(customer).lean();
-    if (!client) return sendError(res, 404, "Customer not found");
+    if (!customerRef || !isValidId(customerRef)) {
+      return sendError(res, 400, "Valid customer ID is required");
+    }
+
+    // ✅ CORRECT: resolve from Customer collection, provider-scoped
+    const client = await Customer.findOne({
+      _id: customerRef,
+      provider: provider._id,
+    }).lean();
+
+    if (!client) {
+      return sendError(res, 404, "Customer not found");
+    }
 
     const totalSafe = safeNum(total);
     const paidSafe = safeNum(paid);
     const computedBalance =
-      typeof balance === "number" ? safeNum(balance) : totalSafe - paidSafe;
+      typeof balance === "number"
+        ? safeNum(balance)
+        : totalSafe - paidSafe;
 
     const invoice = await Invoice.create({
       provider: provider._id,
@@ -97,17 +114,7 @@ export const createInvoice = async (req, res, next) => {
       notes: notes || "",
     });
 
-    // Attach to client
-    try {
-      await Client.findByIdAndUpdate(client._id, {
-        $push: { invoices: invoice._id },
-        $set: { lastInvoiceAt: new Date() },
-      });
-    } catch {
-      // Non-fatal
-    }
-
-    // Timeline entry
+    // Timeline entry (non-fatal)
     try {
       await CustomerTimeline.create({
         provider: provider._id,
@@ -121,9 +128,7 @@ export const createInvoice = async (req, res, next) => {
         invoice: invoice._id,
         createdAt: new Date(),
       });
-    } catch {
-      // Non-fatal
-    }
+    } catch {}
 
     return res.status(201).json({ success: true, invoice });
   } catch (err) {
@@ -357,14 +362,6 @@ export const deleteInvoice = async (req, res, next) => {
 
     await Invoice.deleteOne({ _id: invoice._id });
 
-    try {
-      await Client.updateOne(
-        { _id: customerId },
-        { $pull: { invoices: invoice._id } }
-      );
-    } catch {
-      // Non-fatal
-    }
 
     try {
       await CustomerTimeline.create({
