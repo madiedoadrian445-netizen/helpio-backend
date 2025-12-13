@@ -11,11 +11,16 @@ const baseLog = (level, message, context = {}) => {
   };
 
   if (isProd) {
-    // In production, log a single JSON line (great for log aggregators)
+    // ✅ Structured log (for aggregators)
     console.log(JSON.stringify(payload));
+
+    // 🔥 Render-visible log (prevents collapsing)
+    console.log(
+      `[${level.toUpperCase()}] ${message}`,
+      Object.keys(context).length ? context : ""
+    );
   } else {
-    // In development, keep it readable
-    // eslint-disable-next-line no-console
+    // 🧑‍💻 Dev-friendly logs
     console.log(`[${level.toUpperCase()}] ${message}`, context);
   }
 };
@@ -27,7 +32,7 @@ export const logError = (message, context = {}) =>
   baseLog("error", message, context);
 
 export const logPaymentEvent = (event, context = {}) =>
-  baseLog("payment", event, context);
+  baseLog("payment", `💳 ${event}`, context);
 
 export const logCron = (event, context = {}) =>
   baseLog("cron", event, context);
