@@ -22,36 +22,28 @@ router.post("/simulate", async (req, res) => {
       });
     }
 
-    if (!providerId) {
-      return res.status(400).json({
-        success: false,
-        message: "providerId is required for simulated revenue.",
-      });
-    }
+    const safeProviderId =
+      providerId && typeof providerId === "string" ? providerId : null;
 
     const fakeId = "sim_" + Math.random().toString(36).substring(2, 12);
 
-    /* -------------------------------
-       LEDGER ENTRY (THIS IS THE KEY)
-    -------------------------------- */
     const ledgerResult = await recordTerminalChargeLedger({
-      providerId,
+      providerId: safeProviderId,
       customerId: customerId || null,
-      terminalPaymentId: null,
+      currency,                    // ✅ ADD THIS
       grossAmountCents: amount,
       trigger: "terminal_payment_simulated",
+      simulated: true,
     });
 
-    /* -------------------------------
-       STRUCTURED LOG
-    -------------------------------- */
     logInfo("terminal.simulated_payment", {
       requestId: req.requestId,
-      providerId,
+      providerId: safeProviderId,
       amount,
       currency,
       paymentIntentId: fakeId,
       ledgerEntryId: ledgerResult.entry?._id || null,
+      skipped: ledgerResult.skipped || false, // ✅ ADD THIS
       mode: "simulated",
       source: "helpio_pay",
     });
@@ -59,6 +51,7 @@ router.post("/simulate", async (req, res) => {
     return res.json({
       success: true,
       simulated: true,
+      skipped: ledgerResult.skipped || false, // ✅ ADD THIS
       paymentIntentId: fakeId,
       ledgerEntryId: ledgerResult.entry?._id || null,
       amount,

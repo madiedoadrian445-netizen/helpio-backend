@@ -5,6 +5,8 @@ import ProviderBalance from "../models/ProviderBalance.js";
 
 const { Types } = mongoose;
 
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+
 /* ---------------------------------------------
  * Currency normalization (USD-focused for now)
 ---------------------------------------------- */
@@ -305,8 +307,21 @@ export const recordTerminalChargeLedger = async ({
   stripeChargeId = null,
   trigger = "terminal_payment",
 
+  simulated = false,
   metadata = {},
 }) => {
+  const providerOk = providerId && isValidObjectId(providerId);
+
+  // ✅ SIM: if provider missing/invalid, skip ledger+balance safely
+  if (simulated && !providerOk) {
+    return { entry: null, balance: null, skipped: true };
+  }
+
+  // ✅ REAL: provider MUST be valid
+  if (!providerOk) {
+    throw new Error("Valid providerId is required for terminal charge ledger.");
+  }
+
   return recordChargeLedger({
     providerId,
     customerId,
@@ -326,6 +341,7 @@ export const recordTerminalChargeLedger = async ({
     },
   });
 };
+
 
 /* ============================================================
  * DISPUTE LEDGER OPERATIONS (UNCHANGED)
