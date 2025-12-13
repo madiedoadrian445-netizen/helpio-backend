@@ -64,19 +64,21 @@ const ledgerEntrySchema = new Schema(
     },
 
     sourceType: {
-      type: String,
-      enum: [
-        "invoice",
-        "subscription",
-        "subscription_charge",
-        "payout",
-        "dispute",
-        "adjustment",
-        "system",
-        "test",
-      ],
-      required: true,
-    },
+  type: String,
+  enum: [
+    "invoice",
+    "subscription",
+    "subscription_charge",
+    "terminal",          // ✅ REQUIRED
+    "payout",
+    "refund",
+    "dispute",
+    "adjustment",
+    "system",
+    "test",
+  ],
+  required: true,
+},
 
     invoice: {
       type: Schema.Types.ObjectId,
