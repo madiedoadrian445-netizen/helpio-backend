@@ -1,6 +1,7 @@
 // src/routes/terminalPaymentSimRoutes.js
 import express from "express";
 import { logInfo } from "../utils/logger.js";
+import { recordTerminalChargeLedger } from "../utils/ledger.js";
 
 const router = express.Router();
 
@@ -12,7 +13,7 @@ router.post("/simulate", async (req, res) => {
   try {
     console.log("🔥 SIM ROUTE HIT", req.body);
 
-    const { amount, currency } = req.body;
+    const { amount, currency = "usd", providerId, customerId } = req.body;
 
     if (!amount || amount <= 0) {
       return res.status(400).json({
@@ -21,13 +22,36 @@ router.post("/simulate", async (req, res) => {
       });
     }
 
+    if (!providerId) {
+      return res.status(400).json({
+        success: false,
+        message: "providerId is required for simulated revenue.",
+      });
+    }
+
     const fakeId = "sim_" + Math.random().toString(36).substring(2, 12);
 
+    /* -------------------------------
+       LEDGER ENTRY (THIS IS THE KEY)
+    -------------------------------- */
+    const ledgerResult = await recordTerminalChargeLedger({
+      providerId,
+      customerId: customerId || null,
+      terminalPaymentId: null,
+      grossAmountCents: amount,
+      trigger: "terminal_payment_simulated",
+    });
+
+    /* -------------------------------
+       STRUCTURED LOG
+    -------------------------------- */
     logInfo("terminal.simulated_payment", {
       requestId: req.requestId,
+      providerId,
       amount,
-      currency: currency || "usd",
+      currency,
       paymentIntentId: fakeId,
+      ledgerEntryId: ledgerResult.entry?._id || null,
       mode: "simulated",
       source: "helpio_pay",
     });
@@ -36,8 +60,9 @@ router.post("/simulate", async (req, res) => {
       success: true,
       simulated: true,
       paymentIntentId: fakeId,
+      ledgerEntryId: ledgerResult.entry?._id || null,
       amount,
-      currency: currency || "usd",
+      currency,
       status: "succeeded",
     });
   } catch (err) {
