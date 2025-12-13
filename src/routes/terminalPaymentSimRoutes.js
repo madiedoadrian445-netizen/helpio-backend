@@ -10,6 +10,8 @@ const router = express.Router();
  */
 router.post("/simulate", async (req, res) => {
   try {
+    console.log("🔥 SIM ROUTE HIT", req.body);
+
     const { amount, currency } = req.body;
 
     if (!amount || amount <= 0) {
@@ -21,15 +23,14 @@ router.post("/simulate", async (req, res) => {
 
     const fakeId = "sim_" + Math.random().toString(36).substring(2, 12);
 
-   logInfo("terminal.simulated_payment", {
-  requestId: req.requestId,
-  amount,
-  currency: currency || "usd",
-  paymentIntentId: fakeId,
-  mode: "simulated",
-  source: "helpio_pay",
-});
-
+    logInfo("terminal.simulated_payment", {
+      requestId: req.requestId,
+      amount,
+      currency: currency || "usd",
+      paymentIntentId: fakeId,
+      mode: "simulated",
+      source: "helpio_pay",
+    });
 
     return res.json({
       success: true,
