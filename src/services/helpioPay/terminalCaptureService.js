@@ -4,11 +4,10 @@ import {
   isLiveStripe,
   isSimulatedStripe,
 } from "../../config/stripe.js";
-import mongoose from "mongoose";
 
 import Invoice from "../../models/Invoice.js";
 import Subscription from "../../models/Subscription.js";
-import { CustomerTimeline } from "../../models/CustomerTimeline.js";
+import { logCustomerTimelineEvent } from "../../utils/timelineLogger.js";
 
 import {
   reserveIdempotencyKey,
@@ -165,7 +164,6 @@ export const captureTerminalPaymentService = async ({
       if (invoiceId) {
         invoiceDoc = await Invoice.findById(invoiceId).catch(() => null);
         if (invoiceDoc) {
-          // Mark as paid (you already handle fine-grained balances via invoice payment flows)
           invoiceDoc.status = "paid";
           await invoiceDoc.save().catch(() => {});
         }
@@ -224,27 +222,24 @@ export const captureTerminalPaymentService = async ({
           subscriptionDoc.cycleCount =
             (subscriptionDoc.cycleCount || 0) + 1;
 
-          const freq = plan?.billingFrequency || "monthly";
-          const baseDate =
-            subscriptionDoc.nextBillingDate || new Date();
           subscriptionDoc.nextBillingDate = computeNextBillingDate(
-            baseDate,
-            freq
+            subscriptionDoc.nextBillingDate || new Date(),
+            plan?.billingFrequency || "monthly"
           );
           subscriptionDoc.lastChargeStatus = "success";
           subscriptionDoc.lastBilledAt = new Date();
 
           await subscriptionDoc.save().catch(() => {});
 
-          // CRM Timeline
           if (subscriptionDoc.client) {
             const chargeAmount = safeNum(
               subscriptionDoc.price || plan?.price || grossCents / 100
             );
+
             try {
-              await CustomerTimeline.create({
-                provider: subscriptionDoc.provider,
-                customer:
+              await logCustomerTimelineEvent({
+                providerId: subscriptionDoc.provider,
+                customerId:
                   subscriptionDoc.client._id || subscriptionDoc.client,
                 type: "subscription_charge",
                 title:
@@ -255,47 +250,34 @@ export const captureTerminalPaymentService = async ({
                 amount: chargeAmount,
                 subscription: subscriptionDoc._id,
               });
-            } catch (e) {
-              console.error(
-                "❌ CustomerTimeline error (terminal subscription):",
-                e.message
-              );
-            }
+            } catch {}
           }
-        }
 
-        const providerId =
-          pi.metadata?.providerId || subscriptionDoc?.provider || null;
-        const customerId =
-          pi.metadata?.customerId ||
-          subscriptionDoc?.client ||
-          subscriptionDoc?.customer ||
-          null;
-        const planId =
-          pi.metadata?.planId || subscriptionDoc?.plan || null;
-
-        if (providerId) {
           try {
-            subscriptionLedgerResult = await recordSubscriptionChargeLedger({
-              providerId,
-              customerId,
-              subscriptionId,
-              planId,
-              stripePaymentIntentId: pi.id,
-              grossAmountCents: grossCents,
-              feeAmountCents: totalFeeCents,
-              netAmountCents: netCents,
-              settlementDays: 7,
-              trigger: "helpio_terminal",
-              metadata: {
-                brand: "Helpio Pay",
-                terminal: true,
-                stripeFeeCents,
-                helpioFeeCents,
-                totalFeeCents,
-                netCents,
-              },
-            });
+            subscriptionLedgerResult =
+              await recordSubscriptionChargeLedger({
+                providerId: subscriptionDoc.provider,
+                customerId:
+                  subscriptionDoc.client?._id ||
+                  subscriptionDoc.client ||
+                  null,
+                subscriptionId,
+                planId: subscriptionDoc.plan,
+                stripePaymentIntentId: pi.id,
+                grossAmountCents: grossCents,
+                feeAmountCents: totalFeeCents,
+                netAmountCents: netCents,
+                settlementDays: 7,
+                trigger: "helpio_terminal",
+                metadata: {
+                  brand: "Helpio Pay",
+                  terminal: true,
+                  stripeFeeCents,
+                  helpioFeeCents,
+                  totalFeeCents,
+                  netCents,
+                },
+              });
             providerBalance =
               subscriptionLedgerResult?.balance || providerBalance || null;
           } catch (e) {
@@ -314,23 +296,12 @@ export const captureTerminalPaymentService = async ({
 
       return {
         mode: "live",
-        paymentIntent: {
-          id: pi.id,
-          status: pi.status,
-          amount: pi.amount,
-          currency: pi.currency,
-        },
+        paymentIntent: pi,
         invoice: invoiceDoc,
         subscription: subscriptionDoc,
         invoiceLedgerEntry: invoiceLedgerResult?.entry || null,
         subscriptionLedgerEntry: subscriptionLedgerResult?.entry || null,
         providerBalance,
-        fees: {
-          stripeFeeCents,
-          helpioFeeCents,
-          totalFeeCents,
-          netCents,
-        },
       };
     } catch (err) {
       await markIdempotencyKeyFailed(idemId, {
@@ -358,84 +329,34 @@ export const captureTerminalPaymentService = async ({
   const { stripeFeeCents, helpioFeeCents, totalFeeCents, netCents } =
     computeTerminalFeesForGrossCents(grossCents);
 
-  const invoiceId = intent.invoiceId || null;
-  const subscriptionId = intent.subscriptionId || null;
-
   let invoiceDoc = null;
   let subscriptionDoc = null;
-  let invoiceLedgerResult = null;
-  let subscriptionLedgerResult = null;
-  let providerBalance = null;
 
-  /* ---------- INVOICE (SIM) ---------- */
-  if (invoiceId) {
-    invoiceDoc = await Invoice.findById(invoiceId).catch(() => null);
+  if (intent.invoiceId) {
+    invoiceDoc = await Invoice.findById(intent.invoiceId).catch(() => null);
     if (invoiceDoc) {
       invoiceDoc.status = "paid";
       await invoiceDoc.save().catch(() => {});
     }
-
-    const providerId = invoiceDoc?.provider || null;
-    const customerId =
-      invoiceDoc?.client || invoiceDoc?.customer || null;
-
-    if (providerId) {
-      try {
-        invoiceLedgerResult = await recordInvoicePaymentLedger({
-          providerId,
-          customerId,
-          invoiceId,
-          invoiceNumber:
-            invoiceDoc?.invoiceNumber || invoiceDoc?.number || null,
-          stripePaymentIntentId: intent.id,
-          stripeChargeId: null,
-          grossAmountCents: grossCents,
-          feeAmountCents: totalFeeCents,
-          netAmountCents: netCents,
-          settlementDays: 7,
-          trigger: "helpio_terminal",
-          metadata: {
-            simulated: true,
-            brand: "Helpio Pay",
-            terminal: true,
-            stripeFeeCents,
-            helpioFeeCents,
-            totalFeeCents,
-            netCents,
-          },
-        });
-        providerBalance =
-          invoiceLedgerResult?.balance || providerBalance || null;
-      } catch (e) {
-        console.error("❌ Sim invoice ledger error:", e.message);
-      }
-    }
   }
 
-  /* ---------- SUBSCRIPTION (SIM) ---------- */
-  if (subscriptionId) {
-    subscriptionDoc = await Subscription.findById(subscriptionId)
+  if (intent.subscriptionId) {
+    subscriptionDoc = await Subscription.findById(intent.subscriptionId)
       .populate("plan")
       .populate("client")
       .catch(() => null);
 
     if (subscriptionDoc) {
       const plan = subscriptionDoc.plan;
-
       subscriptionDoc.status = "active";
       subscriptionDoc.cycleCount =
         (subscriptionDoc.cycleCount || 0) + 1;
-
-      const freq = plan?.billingFrequency || "monthly";
-      const baseDate =
-        subscriptionDoc.nextBillingDate || new Date();
       subscriptionDoc.nextBillingDate = computeNextBillingDate(
-        baseDate,
-        freq
+        subscriptionDoc.nextBillingDate || new Date(),
+        plan?.billingFrequency || "monthly"
       );
       subscriptionDoc.lastChargeStatus = "success";
       subscriptionDoc.lastBilledAt = new Date();
-
       await subscriptionDoc.save().catch(() => {});
 
       if (subscriptionDoc.client) {
@@ -443,9 +364,9 @@ export const captureTerminalPaymentService = async ({
           subscriptionDoc.price || plan?.price || grossCents / 100
         );
         try {
-          await CustomerTimeline.create({
-            provider: subscriptionDoc.provider,
-            customer:
+          await logCustomerTimelineEvent({
+            providerId: subscriptionDoc.provider,
+            customerId:
               subscriptionDoc.client._id || subscriptionDoc.client,
             type: "subscription_charge",
             title:
@@ -456,57 +377,14 @@ export const captureTerminalPaymentService = async ({
             amount: chargeAmount,
             subscription: subscriptionDoc._id,
           });
-        } catch (e) {
-          console.error(
-            "❌ CustomerTimeline error (sim terminal subscription):",
-            e.message
-          );
-        }
-      }
-    }
-
-    const providerId = subscriptionDoc?.provider || null;
-    const customerId =
-      subscriptionDoc?.client || subscriptionDoc?.customer || null;
-    const planId = subscriptionDoc?.plan || null;
-
-    if (providerId) {
-      try {
-        subscriptionLedgerResult = await recordSubscriptionChargeLedger({
-          providerId,
-          customerId,
-          subscriptionId,
-          planId,
-          stripePaymentIntentId: intent.id,
-          grossAmountCents: grossCents,
-          feeAmountCents: totalFeeCents,
-          netAmountCents: netCents,
-          settlementDays: 7,
-          trigger: "helpio_terminal",
-          metadata: {
-            simulated: true,
-            brand: "Helpio Pay",
-            terminal: true,
-            stripeFeeCents,
-            helpioFeeCents,
-            totalFeeCents,
-            netCents,
-          },
-        });
-        providerBalance =
-          subscriptionLedgerResult?.balance || providerBalance || null;
-      } catch (e) {
-        console.error(
-          "❌ Sim subscription ledger error:",
-          e.message
-        );
+        } catch {}
       }
     }
   }
 
   await markIdempotencyKeyCompleted(idemId, {
     stripePaymentIntentId: intent.id,
-    extraContext: { simulated: true, status: intent.status },
+    extraContext: { simulated: true },
   });
 
   return {
@@ -514,9 +392,6 @@ export const captureTerminalPaymentService = async ({
     paymentIntent: intent,
     invoice: invoiceDoc,
     subscription: subscriptionDoc,
-    invoiceLedgerEntry: invoiceLedgerResult?.entry || null,
-    subscriptionLedgerEntry: subscriptionLedgerResult?.entry || null,
-    providerBalance,
     fees: {
       stripeFeeCents,
       helpioFeeCents,
