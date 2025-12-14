@@ -2,6 +2,7 @@
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import { User } from "../models/User.js";
+import { Provider } from "../models/Provider.js";
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -36,14 +37,13 @@ export const protect = async (req, res, next) => {
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (jwtErr) {
+    } catch {
       return res.status(401).json({
         success: false,
         message: "Invalid or expired token",
       });
     }
 
-    // Ensure decoded id is a valid ObjectId
     if (!decoded?.id || !isValidId(decoded.id)) {
       return res.status(401).json({
         success: false,
@@ -51,7 +51,7 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    // 4) Load user (exclude sensitive fields)
+    // 4) Load user
     const user = await User.findById(decoded.id).select(
       "-password -refreshToken"
     );
@@ -63,9 +63,22 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    // 5) Attach user + userId shortcuts to request
-    req.user = user;
-    req.userId = user._id; // helps performance in controllers
+    // ⭐ 5) LOAD PROVIDER (THIS WAS MISSING)
+    const provider = await Provider.findOne({ user: user._id }).select("_id");
+
+    // 6) Attach enriched user
+    req.user = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      isVerifiedProvider: user.isVerifiedProvider,
+      providerId: provider?._id || null,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    req.userId = user._id;
 
     next();
   } catch (err) {
@@ -91,7 +104,6 @@ export const requireRole = (roles = []) => {
       });
     }
 
-    // Uses req.user.role (string)
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
@@ -103,12 +115,5 @@ export const requireRole = (roles = []) => {
   };
 };
 
-/* -------------------------------------------------------
-   ADMIN SHORTCUT (ROLE-BASED)
--------------------------------------------------------- */
 export const admin = requireRole("admin");
-
-/* -------------------------------------------------------
-   BACKWARD COMPATIBILITY EXPORT
--------------------------------------------------------- */
 export const requireAdmin = admin;

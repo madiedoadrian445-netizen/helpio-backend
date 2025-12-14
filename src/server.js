@@ -22,6 +22,8 @@ import adminAuthSecurityRoutes from "./routes/adminAuthSecurityRoutes.js";
 import adminSuspiciousRoutes from "./routes/adminSuspiciousRoutes.js";
 import terminalPaymentSimRoutes from "./routes/terminalPaymentSimRoutes.js";
 
+console.log("🔑 JWT_SECRET:", process.env.JWT_SECRET);
+
 
 /* ❗ FIXED PATH */
 import idempotencyRoutes from "./routes/idempotencyRoutes.js";

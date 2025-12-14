@@ -199,14 +199,26 @@ export const login = async (req, res, next) => {
 
 export const getMe = async (req, res, next) => {
   try {
+    const provider = await Provider.findOne({ user: req.user._id }).select("_id");
+
     return res.json({
       success: true,
-      user: req.user,
+      user: {
+        _id: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role,
+        isVerifiedProvider: req.user.isVerifiedProvider,
+        providerId: provider?._id || null,
+        createdAt: req.user.createdAt,
+        updatedAt: req.user.updatedAt,
+      },
     });
   } catch (err) {
     next(err);
   }
 };
+
 
 /* ------------------------ REFRESH TOKEN ----------------------- */
 
