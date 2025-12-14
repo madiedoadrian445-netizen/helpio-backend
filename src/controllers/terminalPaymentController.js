@@ -2,7 +2,7 @@
 import mongoose from "mongoose";
 import TerminalPayment from "../models/TerminalPayment.js";
 import Provider from "../models/Provider.js";
-import { CustomerTimeline } from "../models/CustomerTimeline.js";
+import { logCustomerTimelineEvent } from "../utils/timelineLogger.js";
 
 import {
   stripeClient,
@@ -127,35 +127,6 @@ const sanitizePaymentForProvider = (doc) => {
     payment.metadata = sanitizeMetadataForProvider(payment.metadata);
   }
   return payment;
-};
-
-/* -------------------------------------------------------
-   HELPER – CRM tracking
--------------------------------------------------------- */
-const logTimeline = async ({
-  provider,
-  customer,
-  title,
-  description,
-  amount,
-  terminalPaymentId,
-}) => {
-  if (!customer) return;
-
-  try {
-    await CustomerTimeline.create({
-      provider: provider._id,
-      customer: customer._id,
-      type: "terminal_payment",
-      title,
-      description,
-      amount,
-      terminalPaymentId,
-      createdAt: new Date(),
-    });
-  } catch (err) {
-    console.warn("⚠️ Timeline log error:", err.message);
-  }
 };
 
 /* ======================================================
@@ -447,16 +418,17 @@ export const captureTerminalPayment = async (req, res) => {
 
       const amountDollars = payment.amountCapturedCents / 100;
 
-      await logTimeline({
-        provider,
-        customer: payment.customer,
-        title: "Terminal Payment Captured",
-        description: `Charged $${amountDollars.toFixed(
-          2
-        )} (simulated) via Helpio Pay Terminal`,
-        amount: amountDollars,
-        terminalPaymentId: payment._id,
-      });
+     await logCustomerTimelineEvent({
+  providerId: provider._id,
+  customerId: payment.customer?._id,
+  type: "payment",
+  title: "Terminal Payment Captured",
+  description: `Charged $${amountDollars.toFixed(
+    2
+  )} (simulated) via Helpio Pay Terminal`,
+  amount: amountDollars,
+});
+
 
       await markIdempotencyKeyCompleted(idemId, {
         ledgerEntryId: ledgerResult.entry?._id || null,
@@ -522,16 +494,17 @@ export const captureTerminalPayment = async (req, res) => {
 
     const capturedDollars = capturedPI.amount_received / 100;
 
-    await logTimeline({
-      provider,
-      customer: payment.customer,
-      title: "Terminal Payment Captured",
-      description: `Charged $${capturedDollars.toFixed(
-        2
-      )} via Helpio Pay Terminal`,
-      amount: capturedDollars,
-      terminalPaymentId: payment._id,
-    });
+   await logCustomerTimelineEvent({
+  providerId: provider._id,
+  customerId: payment.customer?._id,
+  type: "payment",
+  title: "Terminal Payment Captured",
+  description: `Charged $${capturedDollars.toFixed(
+    2
+  )} via Helpio Pay Terminal`,
+  amount: capturedDollars,
+});
+
 
     await markIdempotencyKeyCompleted(idemId, {
       stripePaymentIntentId: capturedPI.id,

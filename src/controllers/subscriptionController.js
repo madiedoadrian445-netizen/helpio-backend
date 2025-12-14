@@ -10,8 +10,8 @@ import Subscription from "../models/Subscription.js";
 import SubscriptionCharge from "../models/SubscriptionCharge.js";
 import Provider from "../models/Provider.js";
 import Client from "../models/Client.js";
-import { CustomerTimeline } from "../models/CustomerTimeline.js";
 import LedgerEntry from "../models/LedgerEntry.js";
+import { logCustomerTimelineEvent } from "../utils/timelineLogger.js";
 
 import {
   stripeClient,
@@ -157,24 +157,25 @@ export const handleSuccessfulSubscriptionPayment = async ({
   await sub.save();
 
   // CRM Timeline
-  if (clientId) {
-    try {
-      await CustomerTimeline.create({
-        provider: providerId,
-        customer: clientId,
-        type: "subscription_charge",
-        title: "Subscription charge succeeded",
-        description: `Charged $${chargeAmount.toFixed(
-          2
-        )} for subscription`,
-        amount: chargeAmount,
-        subscription: sub._id,
-        subscriptionCharge: charge._id,
-      });
-    } catch {
-      // Non-fatal
-    }
+if (clientId) {
+  try {
+    await logCustomerTimelineEvent({
+      providerId,
+      customerId: clientId,
+      type: "payment",
+      title: "Subscription payment",
+      description: `Recurring charge for ${
+        plan?.planName || "subscription"
+      }`,
+      amount: chargeAmount,
+      subscription: sub._id,
+      subscriptionCharge: charge._id,
+    });
+  } catch {
+    // Non-fatal
   }
+}
+
 
   /* ⭐ B19 Fee Engine for subscription revenue */
   let ledgerResult = null;
@@ -297,25 +298,26 @@ export const handleFailedSubscriptionPayment = async ({
   sub.lastFailedAt = new Date();
   await sub.save();
 
-  // CRM Timeline
-  if (clientId) {
-    try {
-      await CustomerTimeline.create({
-        provider: providerId,
-        customer: clientId,
-        type: "subscription_charge_failed",
-        title: "Subscription charge failed",
-        description: `Failed charge of $${chargeAmount.toFixed(
-          2
-        )} (${failureReason})`,
-        amount: chargeAmount,
-        subscription: sub._id,
-        subscriptionCharge: charge._id,
-      });
-    } catch {
-      // Non-fatal
-    }
+ // CRM Timeline (centralized + snapshot-safe)
+if (clientId) {
+  try {
+    await logCustomerTimelineEvent({
+      providerId,
+      customerId: clientId,
+      type: "payment",
+      title: "Subscription payment failed",
+      description: `Failed charge of $${chargeAmount.toFixed(
+        2
+      )} (${failureReason})`,
+      amount: chargeAmount,
+      subscription: sub._id,
+      subscriptionCharge: charge._id,
+    });
+  } catch {
+    // Non-fatal
   }
+}
+
 
   // ⭐ FAILED ledger entry (audit only, no balance impact)
   try {
@@ -431,22 +433,20 @@ export const createSubscription = async (req, res) => {
     });
 
     try {
-      await CustomerTimeline.create({
-        provider: provider._id,
-        customer: client._id,
-        type: "subscription_created",
-        title: `Subscription to ${
-          plan.planName || plan.name || "Plan"
-        }`,
-        description: `New subscription at $${price.toFixed(2)} / ${
-          plan.billingFrequency || "monthly"
-        }`,
-        amount: price,
-        subscription: subscription._id,
-      });
-    } catch {
-      // Non-fatal
-    }
+  await logCustomerTimelineEvent({
+    providerId: provider._id,
+    customerId: client._id,
+    type: "subscription",
+    title: "Subscription started",
+    description: `${plan.planName || plan.name || "Plan"} • $${price.toFixed(
+      2
+    )} / ${plan.billingFrequency || "monthly"}`,
+    amount: price,
+    subscription: subscription._id,
+  });
+} catch {
+  // Non-fatal
+}
 
     return res.status(201).json({
       success: true,

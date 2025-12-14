@@ -2,7 +2,8 @@
 import mongoose from "mongoose";
 import Client from "../models/Client.js"; // 🔐 align with other controllers (Invoice, Subscriptions)
 import Provider from "../models/Provider.js";
-import { CustomerTimeline } from "../models/CustomerTimeline.js";
+import { logCustomerTimelineEvent } from "../utils/timelineLogger.js";
+
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -399,28 +400,28 @@ export const addTimelineEntry = async (req, res) => {
     const entryTitle = title ? String(title).trim() : "";
     const entryMessage = message ? String(message).trim() : "";
 
-    // 1) Central CustomerTimeline (used by invoices/subscriptions, etc.)
-    try {
-      await CustomerTimeline.create({
-        provider: provider._id,
-        customer: client._id,
-        type: entryType,
-        title: entryTitle || "Client activity",
-        description: entryMessage,
-        amount:
-          typeof meta.amount === "number"
-            ? meta.amount
-            : meta.amount != null
-            ? Number(meta.amount) || null
-            : null,
-        invoice: meta.invoiceId || null,
-        subscription: meta.subscriptionId || null,
-        subscriptionCharge: meta.subscriptionChargeId || null,
-      });
-    } catch (timelineErr) {
-      console.error("❌ CustomerTimeline error (client):", timelineErr.message);
-      // non-fatal
-    }
+   // 1) Centralized timeline logger (updates CRM snapshot automatically)
+try {
+  await logCustomerTimelineEvent({
+    providerId: provider._id,
+    customerId: client._id,
+    type: entryType,
+    title: entryTitle || "Client activity",
+    description: entryMessage,
+    amount:
+      typeof meta.amount === "number"
+        ? meta.amount
+        : meta.amount != null
+        ? Number(meta.amount) || null
+        : null,
+    invoice: meta.invoiceId || null,
+    subscription: meta.subscriptionId || null,
+    subscriptionCharge: meta.subscriptionChargeId || null,
+  });
+} catch {
+  // non-fatal
+}
+
 
     // 2) Optional embedded timeline for legacy UI
     try {

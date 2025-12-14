@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { Customer } from "../models/Customer.js";
 import { Provider } from "../models/Provider.js";
 import { CustomerTimeline } from "../models/CustomerTimeline.js";
+import { logCustomerTimelineEvent } from "../utils/timelineLogger.js";
 
 /* -----------------------------------------------------
    Helpers
@@ -79,16 +80,17 @@ export const createCustomer = async (req, res, next) => {
 
     const customer = await Customer.create(data);
 
-    // Timeline (non-critical)
-    try {
-      await CustomerTimeline.create({
-        provider: provider._id,
-        customer: customer._id,
-        type: "note",
-        title: "New client added",
-        description: `Client ${customer.name} was added to your CRM.`,
-      });
-    } catch {}
+    // Timeline (non-critical, centralized)
+try {
+  await logCustomerTimelineEvent({
+    providerId: provider._id,
+    customerId: customer._id,
+    type: "note",
+    title: "New client added",
+    description: `Client ${customer.name} was added to your CRM.`,
+  });
+} catch {}
+
 
     return res.status(201).json({ success: true, customer });
   } catch (err) {
@@ -216,16 +218,17 @@ export const updateCustomer = async (req, res, next) => {
     Object.assign(customer, data);
     await customer.save();
 
-    // Timeline (non-critical)
-    try {
-      await CustomerTimeline.create({
-        provider: provider._id,
-        customer: customer._id,
-        type: "note",
-        title: "Client updated",
-        description: `Information for ${customer.name} was updated.`,
-      });
-    } catch {}
+    // Timeline (non-critical, centralized)
+try {
+  await logCustomerTimelineEvent({
+    providerId: provider._id,
+    customerId: customer._id,
+    type: "note",
+    title: "Client updated",
+    description: `Information for ${customer.name} was updated.`,
+  });
+} catch {}
+
 
     return res.json({ success: true, customer });
   } catch (err) {
@@ -258,14 +261,15 @@ export const deleteCustomer = async (req, res, next) => {
     await Customer.deleteOne({ _id: id });
 
     try {
-      await CustomerTimeline.create({
-        provider: provider._id,
-        customer: customer._id,
-        type: "note",
-        title: "Client deleted",
-        description: `${deletedName} was removed from your CRM.`,
-      });
-    } catch {}
+  await logCustomerTimelineEvent({
+    providerId: provider._id,
+    customerId: customer._id,
+    type: "note",
+    title: "Client deleted",
+    description: `${deletedName} was removed from your CRM.`,
+  });
+} catch {}
+
 
     return res.json({ success: true, message: "Customer removed" });
   } catch (err) {

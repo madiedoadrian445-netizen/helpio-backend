@@ -1,16 +1,17 @@
 // src/controllers/invoiceController.js
 import mongoose from "mongoose";
 import Invoice from "../models/Invoice.js";
-import { CustomerTimeline } from "../models/CustomerTimeline.js";
 import Provider from "../models/Provider.js";
 import Customer from "../models/Customer.js";
 import LedgerEntry from "../models/LedgerEntry.js";
 import { calculateFees } from "../utils/feeCalculator.js";
+import { logCustomerTimelineEvent } from "../utils/timelineLogger.js";
 import {
   stripeClient,
   isLiveStripe,
   isSimulatedStripe,
 } from "../config/stripe.js";
+
 
 // IDEMPOTENCY SYSTEM
 import {
@@ -115,20 +116,22 @@ export const createInvoice = async (req, res, next) => {
     });
 
     // Timeline entry (non-fatal)
-    try {
-      await CustomerTimeline.create({
-        provider: provider._id,
-        customer: client._id,
-        type: "invoice",
-        title: `Invoice ${invoiceNumber || invoice._id} created`,
-        description: `Invoice created for $${safeNum(
-          invoice.total
-        ).toLocaleString("en-US")}`,
-        amount: invoice.total,
-        invoice: invoice._id,
-        createdAt: new Date(),
-      });
-    } catch {}
+   try {
+  await logCustomerTimelineEvent({
+    providerId: provider._id,
+    customerId: client._id,
+    type: "invoice",
+    title: `Invoice ${invoiceNumber || invoice._id} created`,
+    description: `Invoice created for $${safeNum(
+      invoice.total
+    ).toLocaleString("en-US")}`,
+    amount: invoice.total,
+    invoice: invoice._id,
+  });
+} catch {
+  // Non-fatal
+}
+
 
     return res.status(201).json({ success: true, invoice });
   } catch (err) {
@@ -318,20 +321,19 @@ export const updateInvoice = async (req, res, next) => {
     Object.assign(invoice, updateData);
     await invoice.save();
 
-    try {
-      await CustomerTimeline.create({
-        provider: provider._id,
-        customer: invoice.customer,
-        type: "invoice_update",
-        title: `Invoice ${invoice.invoiceNumber || invoice._id} updated`,
-        description: "Invoice updated.",
-        amount: invoice.total,
-        invoice: invoice._id,
-        createdAt: new Date(),
-      });
-    } catch {
-      // Non-fatal
-    }
+   try {
+  await logCustomerTimelineEvent({
+    providerId: provider._id,
+    customerId: invoice.customer,
+    type: "invoice",
+    title: `Invoice ${invoice.invoiceNumber || invoice._id} updated`,
+    description: "Invoice updated.",
+    amount: invoice.total,
+    invoice: invoice._id,
+  });
+} catch {
+  // Non-fatal
+}
 
     return res.json({ success: true, invoice });
   } catch (err) {
@@ -364,17 +366,16 @@ export const deleteInvoice = async (req, res, next) => {
 
 
     try {
-      await CustomerTimeline.create({
-        provider: provider._id,
-        customer: customerId,
-        type: "invoice_deleted",
-        title: `Invoice ${invoice.invoiceNumber || invoice._id} deleted`,
-        description: "Invoice removed.",
-        amount: invoice.total,
-        invoice: invoice._id,
-        createdAt: new Date(),
-      });
-    } catch {
+     await logCustomerTimelineEvent({
+  providerId: provider._id,
+  customerId,
+  type: "invoice",
+  title: `Invoice ${invoice.invoiceNumber || invoice._id} deleted`,
+  description: "Invoice removed.",
+  amount: invoice.total,
+  invoice: invoice._id,
+});
+ } catch {
       // Non-fatal
     }
 
@@ -499,19 +500,19 @@ export const payInvoiceNow = async (req, res) => {
 
       await invoice.save();
 
-      await CustomerTimeline.create({
-        provider: provider._id,
-        customer: client._id,
-        type: "invoice_paid",
-        title: `Invoice ${invoice.invoiceNumber || invoice._id} paid`,
-        description:
-          modeLabel === "simulated"
-            ? "Invoice paid (simulation)"
-            : "Invoice paid via Helpio Pay",
-        amount,
-        invoice: invoice._id,
-        createdAt: new Date(),
-      });
+     await logCustomerTimelineEvent({
+  providerId: provider._id,
+  customerId: client._id,
+  type: "payment",
+  title: `Invoice ${invoice.invoiceNumber || invoice._id} paid`,
+  description:
+    modeLabel === "simulated"
+      ? "Invoice paid (simulation)"
+      : "Invoice paid via Helpio Pay",
+  amount,
+  invoice: invoice._id,
+});
+
 
       return invoice;
     };
@@ -804,56 +805,61 @@ export const refundInvoice = async (req, res) => {
       });
     };
 
-    /* -------------------------------------------------------
-       SIMULATED MODE
-    ------------------------------------------------------- */
-    if (isSimulatedStripe || !stripeClient || !isLiveStripe) {
-      try {
-        await CustomerTimeline.create({
-          provider: provider._id,
-          customer: client._id,
-          type: "invoice_refund",
-          title: `Refund issued (simulation) for invoice ${
-            invoice.invoiceNumber || invoice._id
-          }`,
-          description: `Simulated refund of $${refundAmount.toFixed(2)}`,
-          amount: -refundAmount,
-          invoice: invoice._id,
-          createdAt: new Date(),
-        });
-
-        const ledgerEntry = await createRefundLedgerEntry({
-          providerId: provider._id,
-          customerId: client._id,
-          invoiceId: invoice._id,
-          stripePaymentIntentId: null,
-          stripeChargeId: null,
-          stripeRefundId: null,
-          stripeBalanceTransactionId: null,
-          refundAmountCents: refundCents,
-          simulated: true,
-        });
-
-        await markIdempotencyKeyCompleted(idemId, {
-          stripePaymentIntentId: null,
-          extraContext: { simulated: true },
-        });
-
-        return res.json({
-          success: true,
-          mode: "simulated",
-          invoice,
-          refundAmount,
-          ledgerEntry,
-        });
-      } catch (err) {
-        await markIdempotencyKeyFailed(idemId, {
-          extraContext: { error: err.message },
-        });
-        console.error("❌ Simulated refund error:", err);
-        return sendError(res, 500, "Simulated refund failed.");
-      }
+   /* -------------------------------------------------------
+   SIMULATED MODE
+------------------------------------------------------- */
+if (isSimulatedStripe || !stripeClient || !isLiveStripe) {
+  try {
+    // Timeline (non-fatal)
+    try {
+      await logCustomerTimelineEvent({
+        providerId: provider._id,
+        customerId: client._id,
+        type: "refund",
+        title: `Refund issued (simulation) for invoice ${
+          invoice.invoiceNumber || invoice._id
+        }`,
+        description: `Simulated refund of $${refundAmount.toFixed(2)}`,
+        amount: -refundAmount,
+        invoice: invoice._id,
+      });
+    } catch {
+      // Timeline failure should NEVER break refund
     }
+
+    const ledgerEntry = await createRefundLedgerEntry({
+      providerId: provider._id,
+      customerId: client._id,
+      invoiceId: invoice._id,
+      stripePaymentIntentId: null,
+      stripeChargeId: null,
+      stripeRefundId: null,
+      stripeBalanceTransactionId: null,
+      refundAmountCents: refundCents,
+      simulated: true,
+    });
+
+    await markIdempotencyKeyCompleted(idemId, {
+      stripePaymentIntentId: null,
+      extraContext: { simulated: true },
+    });
+
+    return res.json({
+      success: true,
+      mode: "simulated",
+      invoice,
+      refundAmount,
+      ledgerEntry,
+    });
+  } catch (err) {
+    await markIdempotencyKeyFailed(idemId, {
+      extraContext: { error: err.message },
+    });
+    console.error("❌ Simulated refund error:", err);
+    return sendError(res, 500, "Simulated refund failed.");
+  }
+}
+
 
     /* -------------------------------------------------------
        LIVE MODE — Charge lookup for refund
@@ -904,25 +910,22 @@ export const refundInvoice = async (req, res) => {
       return sendError(res, 500, "Processor error issuing refund.");
     }
 
-    // Timeline entry
-    try {
-      await CustomerTimeline.create({
-        provider: provider._id,
-        customer: client._id,
-        type: "invoice_refund",
-        title: `Refund issued for invoice ${
-          invoice.invoiceNumber || invoice._id
-        }`,
-        description: `Refund of $${refundAmount.toFixed(
-          2
-        )} via Helpio Pay`,
-        amount: -refundAmount,
-        invoice: invoice._id,
-        createdAt: new Date(),
-      });
-    } catch {
-      // Non-fatal
-    }
+    // Timeline entry (non-fatal)
+try {
+  await logCustomerTimelineEvent({
+    providerId: provider._id,
+    customerId: client._id,
+    type: "refund",
+    title: `Refund issued for invoice ${
+      invoice.invoiceNumber || invoice._id
+    }`,
+    description: `Refund of $${refundAmount.toFixed(2)} via Helpio Pay`,
+    amount: -refundAmount,
+    invoice: invoice._id,
+  });
+} catch {
+  // Non-fatal
+}
 
     // Ledger entry
     let ledgerEntry = null;
