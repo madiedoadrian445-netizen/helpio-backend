@@ -98,6 +98,9 @@ export const addTimelineEntry = async (req, res, next) => {
 ------------------------------------------------------ */
 export const getTimeline = async (req, res, next) => {
   try {
+
+    console.log("🔥 NEW getTimeline hit — param id =", req.params.id);
+
     const { id: customerId } = req.params;
 
 
