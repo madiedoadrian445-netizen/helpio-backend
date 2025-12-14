@@ -53,10 +53,11 @@ const cleanTimelineInput = (body = {}) => {
 
 /* -----------------------------------------------------
    ADD TIMELINE ENTRY
+   POST /api/customers/:customerId/timeline
 ------------------------------------------------------ */
 export const addTimelineEntry = async (req, res, next) => {
   try {
-   const { id: customerId } = req.params;
+    const { customerId } = req.params;
 
     if (!isValidId(customerId))
       return sendError(res, 400, "Invalid customer ID");
@@ -95,14 +96,13 @@ export const addTimelineEntry = async (req, res, next) => {
 
 /* -----------------------------------------------------
    GET TIMELINE FOR CUSTOMER (Paginated + Filtered)
+   GET /api/customers/:customerId/timeline
 ------------------------------------------------------ */
 export const getTimeline = async (req, res, next) => {
   try {
+    const { customerId } = req.params;
 
-    console.log("🔥 NEW getTimeline hit — param id =", req.params.id);
-
-    const { id: customerId } = req.params;
-
+    console.log("🔥 getTimeline hit — customerId =", customerId);
 
     if (!isValidId(customerId))
       return sendError(res, 400, "Invalid customer ID");
