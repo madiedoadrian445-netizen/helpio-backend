@@ -1,31 +1,42 @@
 // src/routes/customerTimelineRoutes.js
+
 import express from "express";
 import { protect } from "../middleware/auth.js";
 import { validateObjectId } from "../middleware/validateObjectId.js";
 
 import {
   addTimelineEntry,
-  getTimeline, // ✅ FIXED: matches controller export
+  getTimeline,
 } from "../controllers/customerTimelineController.js";
 
 const router = express.Router();
 
 /* -------------------------------------------------------
-   TIMELINE ROUTES (Provider Scoped)
-   GET  /api/customers/:id/timeline
-   POST /api/customers/:id/timeline
+   CUSTOMER TIMELINE ROUTES (Provider Scoped)
+
+   GET  /api/customers/:customerId/timeline
+   POST /api/customers/:customerId/timeline
 -------------------------------------------------------- */
+
+/**
+ * Get timeline for a specific customer
+ * Returns paginated, provider-scoped activity
+ */
 router.get(
-  "/:id/timeline",
+  "/:customerId/timeline",
   protect,
-  validateObjectId("id"),
-  getTimeline // ✅ FIXED: function name updated
+  validateObjectId("customerId"),
+  getTimeline
 );
 
+/**
+ * Add a timeline entry for a customer
+ * Used by invoices, subscriptions, notes, etc.
+ */
 router.post(
-  "/:id/timeline",
+  "/:customerId/timeline",
   protect,
-  validateObjectId("id"),
+  validateObjectId("customerId"),
   addTimelineEntry
 );
 

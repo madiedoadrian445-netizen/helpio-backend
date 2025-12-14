@@ -56,7 +56,7 @@ const cleanTimelineInput = (body = {}) => {
 ------------------------------------------------------ */
 export const addTimelineEntry = async (req, res, next) => {
   try {
-    const { customerId } = req.params;
+   const { id: customerId } = req.params;
 
     if (!isValidId(customerId))
       return sendError(res, 400, "Invalid customer ID");
@@ -98,7 +98,8 @@ export const addTimelineEntry = async (req, res, next) => {
 ------------------------------------------------------ */
 export const getTimeline = async (req, res, next) => {
   try {
-    const { customerId } = req.params;
+    const { id: customerId } = req.params;
+
 
     if (!isValidId(customerId))
       return sendError(res, 400, "Invalid customer ID");
