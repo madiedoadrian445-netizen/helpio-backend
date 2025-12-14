@@ -51,9 +51,9 @@ import subscriptionPlanRoutes from "./routes/subscriptionPlanRoutes.js";
 import subscriptionRoutes from "./routes/subscriptionRoutes.js";
 import subscriptionChargeRoutes from "./routes/subscriptionChargeRoutes.js";
 import terminalRoutes from "./routes/terminalRoutes.js";
-import refundRoutes from "./routes/refundRoutes.js";
+//import refundRoutes from "./routes/refundRoutes.js";
 import ledgerRoutes from "./routes/ledgerRoutes.js";
-import disputeRoutes from "./routes/disputeRoutes.js";
+//import disputeRoutes from "./routes/disputeRoutes.js";
 import payoutRoutes from "./routes/payoutRoutes.js";
 import terminalPaymentRoutes from "./routes/terminalPaymentRoutes.js";
 import providerPayoutDashboardRoutes from "./routes/providerPayoutDashboardRoutes.js";
@@ -214,7 +214,6 @@ app.use(
     "/api/subscriptions",
     "/api/subscription-charges",
     "/api/terminal",
-    "/api/refunds",
     "/api/ledger",
   ],
   paymentLimiter
@@ -227,7 +226,6 @@ app.use(
     "/api/subscriptions",
     "/api/subscription-charges",
     "/api/terminal",
-    "/api/refunds",
     "/api/ledger",
     "/api/payouts",
   ],
@@ -273,8 +271,9 @@ app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/subscription-charges", subscriptionChargeRoutes);
 app.use("/api/idempotency", idempotencyRoutes);
 app.use("/api/ledger", ledgerRoutes);
-app.use("/api/refunds", refundRoutes);
-app.use("/api/disputes", disputeRoutes);
+// ❌ Disabled for v1 (refunds / disputes)
+//app.use("/api/refunds", refundRoutes);
+//app.use("/api/disputes", disputeRoutes);
 app.use("/api/payouts", payoutRoutes);
 app.use("/api/terminal", terminalRoutes);
 app.use("/api/admin/payouts", adminPayoutRoutes);

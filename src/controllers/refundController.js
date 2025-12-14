@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import Invoice from "../models/Invoice.js";
 import Subscription from "../models/Subscription.js";
 import Provider from "../models/Provider.js";
-import { CustomerTimeline } from "../models/CustomerTimeline.js";
+
 
 import {
   stripeClient,
@@ -96,30 +96,7 @@ const applyInvoiceRefundSideEffects = async ({
 
   await invoice.save();
 
-  // Timeline entry
-  if (client?._id) {
-    try {
-      await CustomerTimeline.create({
-        provider: provider._id,
-        customer: client._id,
-        type: "invoice_refund",
-        title: `Invoice ${invoice.invoiceNumber || invoice._id} refunded`,
-        description:
-          mode === "simulated"
-            ? `Refunded $${refundAmount.toFixed(
-                2
-              )} (simulation) — Reason: ${reason || "n/a"}`
-            : `Refunded $${refundAmount.toFixed(
-                2
-              )} via Helpio Pay — Reason: ${reason || "n/a"}`,
-        amount: -refundAmount,
-        invoice: invoice._id,
-        createdAt: new Date(),
-      });
-    } catch (err) {
-      console.error("⚠️ CustomerTimeline invoice_refund error:", err.message);
-    }
-  }
+  
 
   // Ledger entry — negative amounts to reverse previous credit
   const grossCents = Math.floor(refundAmount * 100);
