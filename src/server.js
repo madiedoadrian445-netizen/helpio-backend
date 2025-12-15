@@ -22,7 +22,7 @@ import adminAuthSecurityRoutes from "./routes/adminAuthSecurityRoutes.js";
 import adminSuspiciousRoutes from "./routes/adminSuspiciousRoutes.js";
 import terminalPaymentSimRoutes from "./routes/terminalPaymentSimRoutes.js";
 import conversationRoutes from "./routes/conversationRoutes.js";
-import messageRoutes from "./routes/messageRoutes.js";
+
 
 console.log("🔑 JWT_SECRET:", process.env.JWT_SECRET);
 
@@ -294,9 +294,13 @@ app.use("/api/admin/suspicious", adminSuspiciousRoutes);
 // Real terminal payments (future Stripe Terminal)
 app.use("/api/terminal-payments", terminalPaymentRoutes);
 
+
 // Expo-friendly simulated Tap-to-Pay
 app.use("/api/terminal-payments-sim", terminalPaymentSimRoutes);
+
+// Conversations & Messages
 app.use("/api/conversations", conversationRoutes);
+
 
 
 app.use((req, res, next) => {
