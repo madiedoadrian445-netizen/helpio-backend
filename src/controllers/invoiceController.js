@@ -113,7 +113,19 @@ export const createInvoice = async (req, res, next) => {
         address: client.address || "",
       },
 
-      items: Array.isArray(items) ? items : [],
+     items: Array.isArray(items)
+  ? items.map((i) => ({
+      title: (i?.title ?? i?.name ?? "").toString().trim(),
+      description: (i?.description ?? "").toString().trim(),
+      qty: Number.isFinite(Number(i?.qty)) ? Number(i.qty) : 1,
+      rate: Number.isFinite(Number(i?.rate)) ? Number(i.rate) : 0,
+      amount: Number.isFinite(Number(i?.amount))
+        ? Number(i.amount)
+        : (Number.isFinite(Number(i?.qty)) ? Number(i.qty) : 1) *
+          (Number.isFinite(Number(i?.rate)) ? Number(i.rate) : 0),
+    }))
+  : [],
+
       subtotal: safeNum(subtotal),
       tax: safeNum(tax),
       taxPct: safeNum(taxPct),

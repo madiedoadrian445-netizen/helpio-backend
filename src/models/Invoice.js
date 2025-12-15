@@ -4,10 +4,16 @@ import mongoose from "mongoose";
 const { Schema } = mongoose;
 
 /* -------------------------------------------------------
-   ITEM SUB-SCHEMA (kept EXACTLY as your app expects)
+   ITEM SUB-SCHEMA (UPDATED — SAFE & BACKWARD COMPATIBLE)
 -------------------------------------------------------- */
 const invoiceItemSchema = new Schema(
   {
+    title: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [200, "Item title too long"],
+    },
     description: {
       type: String,
       default: "",
