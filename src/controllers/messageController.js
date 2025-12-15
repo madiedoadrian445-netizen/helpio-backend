@@ -8,7 +8,7 @@ const getProviderId = (req) =>
   req.user?.providerId || req.user?.provider?._id || req.user?._id || null;
 
 // Cursor pagination: use `before` (ISO date). Returns messages oldest→newest.
-export const listMessagesForConversation = async (req, res) => {
+export const getMessagesForConversation = async (req, res) => {
   try {
     const providerId = getProviderId(req);
     const { conversationId } = req.params;
@@ -43,7 +43,7 @@ export const listMessagesForConversation = async (req, res) => {
   }
 };
 
-export const sendMessageInConversation = async (req, res) => {
+export const sendMessage = async (req, res) => {
   try {
     const providerId = getProviderId(req);
     const { conversationId } = req.params;
@@ -100,3 +100,4 @@ export const sendMessageInConversation = async (req, res) => {
     return sendError(res, 500, "Server error.");
   }
 };
+
