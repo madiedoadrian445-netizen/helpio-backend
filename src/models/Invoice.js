@@ -46,6 +46,19 @@ const invoiceSchema = new Schema(
       index: true,
     },
 
+/* ---------------------------------------------------
+   CUSTOMER SNAPSHOT (CRITICAL)
+   Stored at invoice creation time for immutability
+---------------------------------------------------- */
+customerSnapshot: {
+  name: { type: String, trim: true },
+  email: { type: String, trim: true, lowercase: true },
+  phone: { type: String, trim: true },
+  company: { type: String, trim: true },
+  address: { type: String, trim: true },
+},
+
+
     // FIXED: must reference Customer, not Client
     customer: {
       type: Schema.Types.ObjectId,

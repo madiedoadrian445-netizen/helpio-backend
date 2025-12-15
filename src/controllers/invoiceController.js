@@ -50,7 +50,10 @@ const getProviderForUser = async (userId) => {
 /* -------------------------------------------------------
    CREATE INVOICE
 ------------------------------------------------------- */
+
 export const createInvoice = async (req, res, next) => {
+  console.log("🔥 CREATE INVOICE HIT");
+
   try {
     const provider = await getProviderForUser(req.user?._id);
     if (!provider) {
@@ -74,14 +77,13 @@ export const createInvoice = async (req, res, next) => {
       notes,
     } = req.body;
 
-    // ✅ Support both customer + customerId
+    // ✅ resolve customer id
     const customerRef = customer || customerId;
-
     if (!customerRef || !isValidId(customerRef)) {
       return sendError(res, 400, "Valid customer ID is required");
     }
 
-    // ✅ CORRECT: resolve from Customer collection, provider-scoped
+    // ✅ load customer FIRST
     const client = await Customer.findOne({
       _id: customerRef,
       provider: provider._id,
@@ -98,52 +100,58 @@ export const createInvoice = async (req, res, next) => {
         ? safeNum(balance)
         : totalSafe - paidSafe;
 
-   const invoice = await Invoice.create({
-  provider: provider._id,
-  customer: client._id,
+    // ✅ SINGLE invoice creation
+    const invoice = await Invoice.create({
+      provider: provider._id,
+      customer: client._id,
 
-  // ✅ SNAPSHOT (THIS IS THE KEY)
-  customerSnapshot: {
-    _id: client._id,
-    name: client.name,
-    email: client.email,
-    phone: client.phone,
-    addr1: client.addr1 || "",
-    addr2: client.addr2 || "",
-  },
+      // ✅ SNAPSHOT (THIS IS WHAT UI READS)
+      customerSnapshot: {
+        name: client.name,
+        email: client.email,
+        phone: client.phone,
+        address: client.address || "",
+      },
 
-  items: Array.isArray(items) ? items : [],
-  subtotal: safeNum(subtotal),
-  tax: safeNum(tax),
-  taxPct: safeNum(taxPct),
-  total: totalSafe,
-  paid: paidSafe,
-  balance: computedBalance < 0 ? 0 : computedBalance,
-  invoiceNumber,
-  issueDate,
-  dueDate,
-  status: status || "DUE",
-  notes: notes || "",
-});
+      items: Array.isArray(items) ? items : [],
+      subtotal: safeNum(subtotal),
+      tax: safeNum(tax),
+      taxPct: safeNum(taxPct),
+      total: totalSafe,
+      paid: paidSafe,
+      balance: computedBalance < 0 ? 0 : computedBalance,
+      invoiceNumber,
+      issueDate,
+      dueDate,
+      status: status || "DUE",
+      notes: notes || "",
+    });
 
+    console.log(
+      "🧾 SAVED INVOICE SNAPSHOT CHECK:",
+      JSON.stringify(
+        {
+          id: invoice._id,
+          customer: invoice.customer,
+          customerSnapshot: invoice.customerSnapshot,
+        },
+        null,
+        2
+      )
+    );
 
-    // Timeline entry (non-fatal)
-   try {
-  await logCustomerTimelineEvent({
-    providerId: provider._id,
-    customerId: client._id,
-    type: "invoice",
-    title: `Invoice ${invoiceNumber || invoice._id} created`,
-    description: `Invoice created for $${safeNum(
-      invoice.total
-    ).toLocaleString("en-US")}`,
-    amount: invoice.total,
-    invoice: invoice._id,
-  });
-} catch {
-  // Non-fatal
-}
-
+    // Timeline (non-fatal)
+    try {
+      await logCustomerTimelineEvent({
+        providerId: provider._id,
+        customerId: client._id,
+        type: "invoice",
+        title: `Invoice ${invoice.invoiceNumber || invoice._id} created`,
+        description: `Invoice created for $${invoice.total}`,
+        amount: invoice.total,
+        invoice: invoice._id,
+      });
+    } catch {}
 
     return res.status(201).json({ success: true, invoice });
   } catch (err) {
@@ -151,6 +159,7 @@ export const createInvoice = async (req, res, next) => {
     next(err);
   }
 };
+
 
 /* -------------------------------------------------------
    GET INVOICE BY ID
