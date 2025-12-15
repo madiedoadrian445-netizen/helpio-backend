@@ -98,22 +98,34 @@ export const createInvoice = async (req, res, next) => {
         ? safeNum(balance)
         : totalSafe - paidSafe;
 
-    const invoice = await Invoice.create({
-      provider: provider._id,
-      customer: client._id,
-      items: Array.isArray(items) ? items : [],
-      subtotal: safeNum(subtotal),
-      tax: safeNum(tax),
-      taxPct: safeNum(taxPct),
-      total: totalSafe,
-      paid: paidSafe,
-      balance: computedBalance < 0 ? 0 : computedBalance,
-      invoiceNumber,
-      issueDate,
-      dueDate,
-      status: status || "DUE",
-      notes: notes || "",
-    });
+   const invoice = await Invoice.create({
+  provider: provider._id,
+  customer: client._id,
+
+  // ✅ SNAPSHOT (THIS IS THE KEY)
+  customerSnapshot: {
+    _id: client._id,
+    name: client.name,
+    email: client.email,
+    phone: client.phone,
+    addr1: client.addr1 || "",
+    addr2: client.addr2 || "",
+  },
+
+  items: Array.isArray(items) ? items : [],
+  subtotal: safeNum(subtotal),
+  tax: safeNum(tax),
+  taxPct: safeNum(taxPct),
+  total: totalSafe,
+  paid: paidSafe,
+  balance: computedBalance < 0 ? 0 : computedBalance,
+  invoiceNumber,
+  issueDate,
+  dueDate,
+  status: status || "DUE",
+  notes: notes || "",
+});
+
 
     // Timeline entry (non-fatal)
    try {
@@ -966,3 +978,4 @@ try {
     return sendError(res, 500, "Server error processing invoice refund");
   }
 };
+ 
