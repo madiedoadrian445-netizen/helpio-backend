@@ -92,22 +92,51 @@ export const listMyConversations = async (req, res) => {
     if (!includeArchived) q.providerArchivedAt = null;
 
     const conversations = await Conversation.find(q)
-    .sort({
-  lastMessageAt: -1,
-  createdAt: -1,
-  updatedAt: -1,
-})
+  .populate("customerId", "name avatar phone")
+  .populate("serviceId", "title photos")
+  .sort({
+    lastMessageAt: -1,
+    createdAt: -1,
+    updatedAt: -1,
+  })
+  .limit(limit)
+  .lean();
 
-      .limit(limit)
-      .lean();
 
     // iMessage-style unread computation
-    const withUnread = conversations.map((c) => {
-      const last = c.lastMessageAt ? new Date(c.lastMessageAt).getTime() : 0;
-      const read = c.providerLastReadAt ? new Date(c.providerLastReadAt).getTime() : 0;
-      const unread = last > read && c.lastMessageSenderRole === "customer";
-      return { ...c, unread };
-    });
+   const withUnread = conversations.map((c) => {
+  const last = c.lastMessageAt ? new Date(c.lastMessageAt).getTime() : 0;
+  const read = c.providerLastReadAt
+    ? new Date(c.providerLastReadAt).getTime()
+    : 0;
+
+  const unread =
+    last > read && c.lastMessageSenderRole === "customer";
+
+  return {
+    _id: c._id,
+
+    customerId: c.customerId?._id || c.customerId,
+    serviceId: c.serviceId?._id || null,
+
+    // 🔥 SERVICE DATA (for MessagesScreen)
+    serviceTitle: c.serviceId?.title || null,
+    serviceThumbnail: c.serviceId?.photos?.[0] || null,
+
+    // 🔥 CUSTOMER DATA
+    customer: c.customerId
+      ? {
+          name: c.customerId.name,
+          avatar: c.customerId.avatar,
+          phone: c.customerId.phone,
+        }
+      : null,
+
+    lastMessageText: c.lastMessageText || "",
+    unread,
+    updatedAt: c.updatedAt,
+  };
+});
 
     return res.json({ success: true, conversations: withUnread });
   } catch (err) {
