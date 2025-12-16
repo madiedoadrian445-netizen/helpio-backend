@@ -22,15 +22,22 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
     let convo = await Conversation.findOne({ providerId, customerId });
 
     if (!convo) {
-      convo = await Conversation.create({
-        providerId,
-        customerId,
-        lastMessageAt: null,
-        lastMessageText: "",
-        lastMessageSenderRole: "provider",
-        providerLastReadAt: new Date(), // provider just opened it
-        customerLastReadAt: null,
-      });
+      const now = new Date();
+
+convo = await Conversation.create({
+  providerId,
+  customerId,
+
+  // 🔥 THIS IS THE KEY LINE
+  lastMessageAt: now,
+
+  lastMessageText: "Conversation started",
+  lastMessageSenderRole: "system",
+
+  providerLastReadAt: now,
+  customerLastReadAt: null,
+});
+
     } else {
       // opening chat counts as “read” for provider (optional, but iMessage-like)
       convo.providerLastReadAt = new Date();
@@ -63,7 +70,12 @@ export const listMyConversations = async (req, res) => {
     if (!includeArchived) q.providerArchivedAt = null;
 
     const conversations = await Conversation.find(q)
-      .sort({ lastMessageAt: -1, updatedAt: -1 })
+    .sort({
+  lastMessageAt: -1,
+  createdAt: -1,
+  updatedAt: -1,
+})
+
       .limit(limit)
       .lean();
 

@@ -22,7 +22,7 @@ const ConversationSchema = new Schema(
     lastMessageText: { type: String, default: "" },
     lastMessageSenderRole: {
       type: String,
-      enum: ["provider", "customer"],
+     enum: ["provider", "customer", "system"], 
       default: "provider",
     },
 
