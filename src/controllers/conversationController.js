@@ -7,8 +7,11 @@ const sendError = (res, status, message) =>
 /**
  * 🔧 Adjust this ONE function if your auth shape differs.
  */
-const getProviderId = (req) =>
-  req.user?.providerId || req.user?.provider?._id || req.user?._id || null;
+const getProviderId = (req) => {
+  if (!req.user?.providerId) return null;
+  return req.user.providerId;
+};
+
 
 export const getOrCreateConversationWithCustomer = async (req, res) => {
   try {
@@ -78,6 +81,31 @@ export const listMyConversations = async (req, res) => {
     return sendError(res, 500, "Server error.");
   }
 };
+
+export const getConversationMeta = async (req, res) => {
+  try {
+    const providerId = getProviderId(req);
+    const { conversationId } = req.params;
+    if (!providerId) return sendError(res, 401, "Unauthorized.");
+
+    const convo = await Conversation.findOne(
+      { _id: conversationId, providerId },
+      "customerId"
+    );
+
+    if (!convo) return sendError(res, 404, "Conversation not found.");
+
+    return res.json({
+      success: true,
+      customerId: convo.customerId,
+    });
+  } catch (err) {
+    console.log("❌ getConversationMeta:", err);
+    return sendError(res, 500, "Server error.");
+  }
+};
+
+
 
 export const getConversationById = async (req, res) => {
   try {
