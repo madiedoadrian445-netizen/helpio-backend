@@ -10,9 +10,18 @@ const ConversationSchema = new Schema(
       required: true,
       index: true,
     },
+
     customerId: {
       type: Schema.Types.ObjectId,
       ref: "Customer",
+      required: true,
+      index: true,
+    },
+
+    // 🔥 REQUIRED — this was missing
+    serviceId: {
+      type: Schema.Types.ObjectId,
+      ref: "Service",
       required: true,
       index: true,
     },
@@ -22,7 +31,7 @@ const ConversationSchema = new Schema(
     lastMessageText: { type: String, default: "" },
     lastMessageSenderRole: {
       type: String,
-     enum: ["provider", "customer", "system"], 
+      enum: ["provider", "customer", "system"],
       default: "provider",
     },
 
@@ -37,7 +46,10 @@ const ConversationSchema = new Schema(
   { timestamps: true }
 );
 
-// enforce 1:1 uniqueness
-ConversationSchema.index({ providerId: 1, customerId: 1 }, { unique: true });
+// ✅ one conversation PER listing
+ConversationSchema.index(
+  { providerId: 1, customerId: 1, serviceId: 1 },
+  { unique: true }
+);
 
 export default mongoose.model("Conversation", ConversationSchema);

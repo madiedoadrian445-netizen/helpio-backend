@@ -16,10 +16,21 @@ const getProviderId = (req) => {
 export const getOrCreateConversationWithCustomer = async (req, res) => {
   try {
     const providerId = getProviderId(req);
-    const { customerId } = req.params;
+   const { customerId } = req.params;
+const { serviceId } = req.body;
+
+if (!serviceId) {
+  return sendError(res, 400, "serviceId is required.");
+}
+
     if (!providerId) return sendError(res, 401, "Unauthorized.");
 
-    let convo = await Conversation.findOne({ providerId, customerId });
+   let convo = await Conversation.findOne({
+  providerId,
+  customerId,
+  serviceId,
+});
+
 
     if (!convo) {
       const now = new Date();
@@ -27,6 +38,8 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
 convo = await Conversation.create({
   providerId,
   customerId,
+  serviceId,
+
 
   // 🔥 THIS IS THE KEY LINE
   lastMessageAt: now,
@@ -46,16 +59,25 @@ convo = await Conversation.create({
 
     return res.json({ success: true, conversation: convo });
   } catch (err) {
-    // race condition safe: unique index can throw 11000
-    if (err?.code === 11000) {
-      const providerId = getProviderId(req);
-      const { customerId } = req.params;
-      const convo = await Conversation.findOne({ providerId, customerId });
-      return res.json({ success: true, conversation: convo });
-    }
-    console.log("❌ getOrCreateConversationWithCustomer:", err);
-    return sendError(res, 500, "Server error.");
+  // race condition safe: unique index can throw 11000
+  if (err?.code === 11000) {
+    const providerId = getProviderId(req);
+    const { customerId } = req.params;
+    const { serviceId } = req.body;
+
+    const convo = await Conversation.findOne({
+      providerId,
+      customerId,
+      serviceId,
+    });
+
+    return res.json({ success: true, conversation: convo });
   }
+
+  console.log("❌ getOrCreateConversationWithCustomer:", err);
+  return sendError(res, 500, "Server error.");
+}
+
 };
 
 export const listMyConversations = async (req, res) => {
