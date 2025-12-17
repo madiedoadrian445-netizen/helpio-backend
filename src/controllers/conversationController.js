@@ -14,6 +14,16 @@ const getProviderId = (req) => {
   return req.user.providerId;
 };
 
+const getConversationAccessQuery = (req, conversationId) => {
+  // Provider view
+  if (req.user?.providerId) {
+    return { _id: conversationId, providerId: req.user.providerId };
+  }
+
+  // Customer view
+  return { _id: conversationId, customerId: req.user._id };
+};
+
 
 export const getOrCreateConversationWithCustomer = async (req, res) => {
   try {
@@ -73,61 +83,65 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
 
 export const listMyConversations = async (req, res) => {
   try {
-    const providerId = getProviderId(req);
-    if (!providerId) return sendError(res, 401, "Unauthorized.");
-
     const limit = Math.min(parseInt(req.query.limit || "50", 10), 100);
     const includeArchived = req.query.includeArchived === "true";
 
-    const q = { providerId };
-    if (!includeArchived) q.providerArchivedAt = null;
+    const isProvider = !!req.user?.providerId;
+
+    const q = isProvider
+      ? { providerId: req.user.providerId }
+      : { customerId: req.user._id };
+
+    // Optional archive handling (only if your schema has both fields)
+    if (!includeArchived) {
+      if (isProvider) q.providerArchivedAt = null;
+      else q.customerArchivedAt = null;
+    }
 
     const conversations = await Conversation.find(q)
-  .populate("customerId", "name avatar phone")
-  .populate("serviceId", "title photos")
-  .sort({
-    lastMessageAt: -1,
-    createdAt: -1,
-    updatedAt: -1,
-  })
-  .limit(limit)
-  .lean();
+      .populate("customerId", "name avatar phone")
+      .populate("serviceId", "title photos")
+      .sort({ lastMessageAt: -1, createdAt: -1, updatedAt: -1 })
+      .limit(limit)
+      .lean();
 
+    const withUnread = conversations.map((c) => {
+      const last = c.lastMessageAt ? new Date(c.lastMessageAt).getTime() : 0;
 
-    // iMessage-style unread computation
-   const withUnread = conversations.map((c) => {
-  const last = c.lastMessageAt ? new Date(c.lastMessageAt).getTime() : 0;
-  const read = c.providerLastReadAt
-    ? new Date(c.providerLastReadAt).getTime()
-    : 0;
+      const read = isProvider
+        ? c.providerLastReadAt
+          ? new Date(c.providerLastReadAt).getTime()
+          : 0
+        : c.customerLastReadAt
+          ? new Date(c.customerLastReadAt).getTime()
+          : 0;
 
-  const unread =
-    last > read && c.lastMessageSenderRole === "customer";
+      const unread =
+        last > read &&
+        c.lastMessageSenderRole === (isProvider ? "customer" : "provider");
 
-  return {
-    _id: c._id,
+      return {
+        _id: c._id,
 
-    customerId: c.customerId?._id || c.customerId,
-    serviceId: c.serviceId?._id || null,
+        customerId: c.customerId?._id || c.customerId,
+        serviceId: c.serviceId?._id || null,
 
-    // 🔥 SERVICE DATA (for MessagesScreen)
-    serviceTitle: c.serviceId?.title || null,
-    serviceThumbnail: c.serviceId?.photos?.[0] || null,
+        serviceTitle: c.serviceId?.title || null,
+        serviceThumbnail: c.serviceId?.photos?.[0] || null,
 
-    // 🔥 CUSTOMER DATA
-    customer: c.customerId
-      ? {
-          name: c.customerId.name,
-          avatar: c.customerId.avatar,
-          phone: c.customerId.phone,
-        }
-      : null,
+        customer: c.customerId
+          ? {
+              name: c.customerId.name,
+              avatar: c.customerId.avatar,
+              phone: c.customerId.phone,
+            }
+          : null,
 
-    lastMessageText: c.lastMessageText || "",
-    unread,
-    updatedAt: c.updatedAt,
-  };
-});
+        lastMessageText: c.lastMessageText || "",
+        unread,
+        updatedAt: c.updatedAt,
+      };
+    });
 
     return res.json({ success: true, conversations: withUnread });
   } catch (err) {
@@ -135,6 +149,7 @@ export const listMyConversations = async (req, res) => {
     return sendError(res, 500, "Server error.");
   }
 };
+
 
 export const getConversationMeta = async (req, res) => {
   try {
@@ -163,12 +178,20 @@ export const getConversationMeta = async (req, res) => {
 
 export const getConversationById = async (req, res) => {
   try {
-    const providerId = getProviderId(req);
     const { conversationId } = req.params;
-    if (!providerId) return sendError(res, 401, "Unauthorized.");
 
-    const convo = await Conversation.findOne({ _id: conversationId, providerId });
-    if (!convo) return sendError(res, 404, "Conversation not found.");
+    const or = [];
+    if (req.user?.providerId) or.push({ providerId: req.user.providerId });
+    if (req.user?._id) or.push({ customerId: req.user._id });
+
+    const convo = await Conversation.findOne({
+      _id: conversationId,
+      $or: or,
+    });
+
+    if (!convo) {
+      return sendError(res, 404, "Conversation not found.");
+    }
 
     return res.json({ success: true, conversation: convo });
   } catch (err) {
@@ -177,30 +200,47 @@ export const getConversationById = async (req, res) => {
   }
 };
 
-export const markConversationReadAsProvider = async (req, res) => {
-  try {
-    const providerId = getProviderId(req);
-    const { conversationId } = req.params;
-    if (!providerId) return sendError(res, 401, "Unauthorized.");
 
-    const convo = await Conversation.findOne({ _id: conversationId, providerId });
-    if (!convo) return sendError(res, 404, "Conversation not found.");
+
+export const markConversationRead = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+
+    const or = [];
+    if (req.user?.providerId) or.push({ providerId: req.user.providerId });
+    if (req.user?._id) or.push({ customerId: req.user._id });
+
+    const convo = await Conversation.findOne({
+      _id: conversationId,
+      $or: or,
+    });
+
+    if (!convo) {
+      return sendError(res, 404, "Conversation not found.");
+    }
 
     const now = new Date();
 
-    convo.providerLastReadAt = now;
+    if (req.user?.providerId) {
+      convo.providerLastReadAt = now;
+    } else {
+      convo.customerLastReadAt = now;
+    }
+
     await convo.save();
 
-    // Stamp readAt for incoming (customer) messages that are unread
     await Message.updateMany(
-      { conversationId, senderRole: "customer", readAt: null },
+      {
+        conversationId,
+        senderRole: req.user?.providerId ? "customer" : "provider",
+        readAt: null,
+      },
       { $set: { readAt: now } }
     );
 
-    return res.json({ success: true, providerLastReadAt: now });
+    return res.json({ success: true });
   } catch (err) {
-    console.log("❌ markConversationReadAsProvider:", err);
+    console.log("❌ markConversationRead:", err);
     return sendError(res, 500, "Server error.");
   }
 };
-
