@@ -1,5 +1,6 @@
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
+import Listing from "../models/Listing.js";
 
 const sendError = (res, status, message) =>
   res.status(status).json({ success: false, message });
@@ -22,6 +23,18 @@ const { serviceId } = req.body;
 if (!serviceId) {
   return sendError(res, 400, "serviceId is required.");
 }
+
+// 🔥 VALIDATE THAT SERVICE === LISTING
+const listing = await Listing.findById(serviceId).select("_id isActive");
+
+if (!listing || listing.isActive === false) {
+  return sendError(
+    res,
+    404,
+    "Messaging is only available for live listings."
+  );
+}
+
 
     if (!providerId) return sendError(res, 401, "Unauthorized.");
 
