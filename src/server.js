@@ -23,6 +23,7 @@ import adminSuspiciousRoutes from "./routes/adminSuspiciousRoutes.js";
 import terminalPaymentSimRoutes from "./routes/terminalPaymentSimRoutes.js";
 import conversationRoutes from "./routes/conversationRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
+import serviceRoutes from "./routes/service.routes.js";
 
 
 console.log("🔑 JWT_SECRET:", process.env.JWT_SECRET);
@@ -302,6 +303,7 @@ app.use("/api/terminal-payments-sim", terminalPaymentSimRoutes);
 // Conversations & Messages
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/conversations", messageRoutes);
+app.use("/api/services", serviceRoutes);
 
 
 app.use((req, res, next) => {
