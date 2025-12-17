@@ -43,7 +43,7 @@ router.post("/register", async (req, res, next) => {
   const ctx = getContext(req);
 
   try {
-    const response = await register(req, res);
+   const response = await register(req, res, next);
 
     if (res.statusCode >= 200 && res.statusCode < 300) {
       await logAuthEvent({
