@@ -11,9 +11,9 @@ import {
 const router = express.Router();
 
 router.post(
-  "/with-customer/:customerId",
+  "/with-service/:providerId",
   protect,
-  validateObjectId("customerId"),
+  validateObjectId("providerId"),
   getOrCreateConversationWithCustomer
 );
 

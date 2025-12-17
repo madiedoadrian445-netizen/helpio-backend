@@ -17,81 +17,58 @@ const getProviderId = (req) => {
 
 export const getOrCreateConversationWithCustomer = async (req, res) => {
   try {
-    const providerId = getProviderId(req);
-   const { customerId } = req.params;
-const { serviceId } = req.body;
+    const providerId = req.params.providerId;   // ✅ TARGET PROVIDER
+    const customerId = req.user._id;             // ✅ CUSTOMER
+    const { serviceId } = req.body;
 
-if (!serviceId) {
-  return sendError(res, 400, "serviceId is required.");
-}
+    if (!providerId || !customerId) {
+      return sendError(res, 401, "Unauthorized.");
+    }
 
-// 🔥 VALIDATE THAT SERVICE === LISTING
-const listing = await Listing.findById(serviceId).select("_id isActive");
+    if (!serviceId) {
+      return sendError(res, 400, "serviceId is required.");
+    }
 
-if (!listing || listing.isActive === false) {
-  return sendError(
-    res,
-    404,
-    "Messaging is only available for live listings."
-  );
-}
+    // 🔥 Validate listing is live
+    const listing = await Listing.findById(serviceId).select("_id isActive");
 
+    if (!listing || listing.isActive === false) {
+      return sendError(
+        res,
+        404,
+        "Messaging is only available for live listings."
+      );
+    }
 
-    if (!providerId) return sendError(res, 401, "Unauthorized.");
-
-   let convo = await Conversation.findOne({
-  providerId,
-  customerId,
-  serviceId,
-});
-
+    let convo = await Conversation.findOne({
+      providerId,
+      customerId,
+      serviceId,
+    });
 
     if (!convo) {
       const now = new Date();
 
-convo = await Conversation.create({
-  providerId,
-  customerId,
-  serviceId,
-
-
-  // 🔥 THIS IS THE KEY LINE
-  lastMessageAt: now,
-
-  lastMessageText: "Conversation started",
-  lastMessageSenderRole: "system",
-
-  providerLastReadAt: now,
-  customerLastReadAt: null,
-});
-
+      convo = await Conversation.create({
+        providerId,
+        customerId,
+        serviceId,
+        lastMessageAt: now,
+        lastMessageText: "Conversation started",
+        lastMessageSenderRole: "system",
+        providerLastReadAt: now,
+        customerLastReadAt: null,
+      });
     } else {
-      // opening chat counts as “read” for provider (optional, but iMessage-like)
       convo.providerLastReadAt = new Date();
       await convo.save();
     }
 
     return res.json({ success: true, conversation: convo });
   } catch (err) {
-  // race condition safe: unique index can throw 11000
-  if (err?.code === 11000) {
-    const providerId = getProviderId(req);
-    const { customerId } = req.params;
-    const { serviceId } = req.body;
-
-    const convo = await Conversation.findOne({
-      providerId,
-      customerId,
-      serviceId,
-    });
-
-    return res.json({ success: true, conversation: convo });
+    console.log("❌ getOrCreateConversationWithCustomer:", err);
+    return sendError(res, 500, "Server error.");
   }
-
-  console.log("❌ getOrCreateConversationWithCustomer:", err);
-  return sendError(res, 500, "Server error.");
-}
-
 };
 
 export const listMyConversations = async (req, res) => {
