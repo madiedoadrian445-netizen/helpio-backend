@@ -1,6 +1,7 @@
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
-import Listing from "../models/Listing.js";
+import { Listing } from "../models/Listing.js";
+
 
 const sendError = (res, status, message) =>
   res.status(status).json({ success: false, message });
@@ -225,3 +226,4 @@ export const markConversationReadAsProvider = async (req, res) => {
     return sendError(res, 500, "Server error.");
   }
 };
+
