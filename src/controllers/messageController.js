@@ -39,7 +39,8 @@ export const listMessages = async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit || "40", 10), 100);
     const before = req.query.before ? new Date(req.query.before) : null;
 
-    const q = { conversation: conversationId };
+    // ✅ FIX: use schema field
+    const q = { conversationId };
     if (before && !isNaN(before.getTime())) {
       q.createdAt = { $lt: before };
     }
@@ -84,12 +85,18 @@ export const sendMessage = async (req, res) => {
 
     const now = new Date();
 
+    // ✅ FIX: match Message schema EXACTLY
     const msg = await Message.create({
-      conversation: conversationId,
-      sender: sender.senderId,
+      conversationId: conversationId,
+      providerId: convo.providerId,
+      customerId: convo.customerId,
+
+      senderId: sender.senderId,
       senderRole: sender.role,
+
       text: cleanText,
       imageUrls: isImage ? imageUrls.slice(0, 12) : [],
+
       deliveredAt: now,
       readAt: null,
     });
