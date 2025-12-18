@@ -302,7 +302,7 @@ app.use("/api/terminal-payments-sim", terminalPaymentSimRoutes);
 
 // Conversations & Messages
 app.use("/api/conversations", conversationRoutes);
-app.use("/api/conversations", messageRoutes);
+app.use("/api/messages", messageRoutes);
 app.use("/api/services", serviceRoutes);
 
 

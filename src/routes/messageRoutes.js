@@ -1,29 +1,36 @@
-// src/routes/messageRoutes.js
 import express from "express";
 import { protect } from "../middleware/auth.js";
+import { validateObjectId } from "../middleware/validateObjectId.js";
 import {
-  getMessagesForConversation,
+  listMessages,
   sendMessage,
 } from "../controllers/messageController.js";
 
+// 👇 reuse the SAME logic
+import { markConversationRead } from "../controllers/conversationController.js";
+
 const router = express.Router();
 
-/**
- * GET /api/conversations/:conversationId/messages
- */
 router.get(
-  "/:conversationId/messages",
+  "/:conversationId",
   protect,
-  getMessagesForConversation
+  validateObjectId("conversationId"),
+  listMessages
 );
 
-/**
- * POST /api/conversations/:conversationId/messages
- */
 router.post(
-  "/:conversationId/messages",
+  "/:conversationId",
   protect,
+  validateObjectId("conversationId"),
   sendMessage
+);
+
+// 🔑 THIS IS THE MISSING PIECE
+router.post(
+  "/:conversationId/read",
+  protect,
+  validateObjectId("conversationId"),
+  markConversationRead
 );
 
 export default router;

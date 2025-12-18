@@ -4,28 +4,60 @@ import Message from "../models/Message.js";
 const sendError = (res, status, message) =>
   res.status(status).json({ success: false, message });
 
-const getProviderId = (req) =>
-  req.user?.providerId || req.user?.provider?._id || req.user?._id || null;
+/**
+ * Resolve sender role and id safely
+ */
+const getSenderContext = (req) => {
+  if (req.user?.providerId) {
+    return {
+      role: "provider",
+      senderId: req.user.providerId,
+    };
+  }
 
-// Cursor pagination: use `before` (ISO date). Returns messages oldest→newest.
-export const getMessagesForConversation = async (req, res) => {
+  if (req.user?._id) {
+    return {
+      role: "customer",
+      senderId: req.user._id,
+    };
+  }
+
+  return null;
+};
+
+/**
+ * GET /api/messages/:conversationId
+ * Cursor pagination via ?before=<ISO>
+ * Returns messages oldest → newest
+ */
+export const listMessages = async (req, res) => {
   try {
-    const providerId = getProviderId(req);
     const { conversationId } = req.params;
-    if (!providerId) return sendError(res, 401, "Unauthorized.");
+    const sender = getSenderContext(req);
 
-    const convo = await Conversation.findOne({ _id: conversationId, providerId });
+    if (!sender) return sendError(res, 401, "Unauthorized.");
+
+    // Role-aware conversation access
+    const or = [];
+    if (sender.role === "provider") or.push({ providerId: sender.senderId });
+    if (sender.role === "customer") or.push({ customerId: sender.senderId });
+
+    const convo = await Conversation.findOne({
+      _id: conversationId,
+      $or: or,
+    });
+
     if (!convo) return sendError(res, 404, "Conversation not found.");
 
     const limit = Math.min(parseInt(req.query.limit || "40", 10), 100);
     const before = req.query.before ? new Date(req.query.before) : null;
 
-    const q = { conversationId };
+    const q = { conversation: conversationId };
     if (before && !isNaN(before.getTime())) {
       q.createdAt = { $lt: before };
     }
 
-    // Fetch newest first, then reverse to oldest->newest for UI
+    // Fetch newest first, then reverse for UI
     const batch = await Message.find(q)
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -33,71 +65,81 @@ export const getMessagesForConversation = async (req, res) => {
 
     const messages = batch.reverse();
 
-    const nextCursor =
+    const nextBefore =
       batch.length === limit ? batch[batch.length - 1].createdAt : null;
 
-    return res.json({ success: true, messages, nextCursor });
+    return res.json({
+      success: true,
+      messages,
+      nextBefore,
+    });
   } catch (err) {
-    console.log("❌ listMessagesForConversation:", err);
+    console.log("❌ listMessages:", err);
     return sendError(res, 500, "Server error.");
   }
 };
 
+/**
+ * POST /api/messages/:conversationId
+ * Body: { text?, imageUrls? }
+ */
 export const sendMessage = async (req, res) => {
   try {
-    const providerId = getProviderId(req);
     const { conversationId } = req.params;
-    if (!providerId) return sendError(res, 401, "Unauthorized.");
+    const sender = getSenderContext(req);
 
-    const convo = await Conversation.findOne({ _id: conversationId, providerId });
+    if (!sender) return sendError(res, 401, "Unauthorized.");
+
+    // Role-aware conversation access
+    const or = [];
+    if (sender.role === "provider") or.push({ providerId: sender.senderId });
+    if (sender.role === "customer") or.push({ customerId: sender.senderId });
+
+    const convo = await Conversation.findOne({
+      _id: conversationId,
+      $or: or,
+    });
+
     if (!convo) return sendError(res, 404, "Conversation not found.");
 
-    const { text, type, imageUrls } = req.body || {};
+    const { text, imageUrls } = req.body || {};
 
-    const finalType = type || (Array.isArray(imageUrls) && imageUrls.length ? "image" : "text");
     const cleanText = typeof text === "string" ? text.trim() : "";
+    const isImage = Array.isArray(imageUrls) && imageUrls.length > 0;
 
-    if (finalType === "text" && !cleanText) {
-      return sendError(res, 400, "Message text is required.");
-    }
-
-    if (finalType === "image") {
-      if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
-        return sendError(res, 400, "imageUrls[] is required for image messages.");
-      }
+    if (!cleanText && !isImage) {
+      return sendError(res, 400, "Message text or images are required.");
     }
 
     const now = new Date();
 
     const msg = await Message.create({
-      conversationId,
-      providerId: convo.providerId,
-      customerId: convo.customerId,
+      conversation: conversationId, // ✅ correct field
+      sender: sender.senderId,
+      senderRole: sender.role,
 
-      senderRole: "provider",
-      senderId: providerId,
-
-      type: finalType,
-      text: finalType === "text" ? cleanText : "",
-      imageUrls: finalType === "image" ? imageUrls.slice(0, 12) : [],
+      text: cleanText,
+      imageUrls: isImage ? imageUrls.slice(0, 12) : [],
 
       deliveredAt: now,
       readAt: null,
     });
 
-    // Update convo summary for list UI (iMessage list)
+    // Update conversation summary (used by Messages list)
     convo.lastMessageAt = now;
-    convo.lastMessageSenderRole = "provider";
-    convo.lastMessageText =
-      finalType === "text"
-        ? cleanText
-        : `📷 Photo${msg.imageUrls.length > 1 ? "s" : ""}`;
+    convo.lastMessageSenderRole = sender.role;
+    convo.lastMessageText = isImage
+      ? `📷 Photo${imageUrls.length > 1 ? "s" : ""}`
+      : cleanText.slice(0, 200);
+
     await convo.save();
 
-    return res.status(201).json({ success: true, message: msg });
+    return res.status(201).json({
+      success: true,
+      message: msg,
+    });
   } catch (err) {
-    console.log("❌ sendMessageInConversation:", err);
+    console.log("❌ sendMessage:", err);
     return sendError(res, 500, "Server error.");
   }
 };
-

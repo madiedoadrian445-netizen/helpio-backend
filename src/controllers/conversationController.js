@@ -229,14 +229,15 @@ export const markConversationRead = async (req, res) => {
 
     await convo.save();
 
-    await Message.updateMany(
-      {
-        conversationId,
-        senderRole: req.user?.providerId ? "customer" : "provider",
-        readAt: null,
-      },
-      { $set: { readAt: now } }
-    );
+   await Message.updateMany(
+  {
+    conversation: conversationId, // ✅ CORRECT
+    senderRole: req.user?.providerId ? "customer" : "provider",
+    readAt: null,
+  },
+  { $set: { readAt: now } }
+);
+
 
     return res.json({ success: true });
   } catch (err) {
