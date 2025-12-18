@@ -38,14 +38,20 @@ export const listMessages = async (req, res) => {
     if (!sender) return sendError(res, 401, "Unauthorized.");
 
     // Role-aware conversation access
-    const or = [];
-    if (sender.role === "provider") or.push({ providerId: sender.senderId });
-    if (sender.role === "customer") or.push({ customerId: sender.senderId });
+    const convo = await Conversation.findById(conversationId);
 
-    const convo = await Conversation.findOne({
-      _id: conversationId,
-      $or: or,
-    });
+if (!convo) {
+  return sendError(res, 404, "Conversation not found.");
+}
+
+// 🔐 Hard permission check
+if (
+  (sender.role === "provider" && String(convo.providerId) !== String(sender.senderId)) ||
+  (sender.role === "customer" && String(convo.customerId) !== String(sender.senderId))
+) {
+  return sendError(res, 403, "Access denied.");
+}
+
 
     if (!convo) return sendError(res, 404, "Conversation not found.");
 
@@ -91,14 +97,21 @@ export const sendMessage = async (req, res) => {
     if (!sender) return sendError(res, 401, "Unauthorized.");
 
     // Role-aware conversation access
-    const or = [];
-    if (sender.role === "provider") or.push({ providerId: sender.senderId });
-    if (sender.role === "customer") or.push({ customerId: sender.senderId });
+   const convo = await Conversation.findById(conversationId);
 
-    const convo = await Conversation.findOne({
-      _id: conversationId,
-      $or: or,
-    });
+if (!convo) {
+  return sendError(res, 404, "Conversation not found.");
+}
+
+// 🔐 Hard permission check (EXACT MATCH with listMessages)
+if (
+  (sender.role === "provider" &&
+    String(convo.providerId) !== String(sender.senderId)) ||
+  (sender.role === "customer" &&
+    String(convo.customerId) !== String(sender.senderId))
+) {
+  return sendError(res, 403, "Access denied.");
+}
 
     if (!convo) return sendError(res, 404, "Conversation not found.");
 
@@ -124,6 +137,11 @@ export const sendMessage = async (req, res) => {
       deliveredAt: now,
       readAt: null,
     });
+
+console.log("🧪 convo.providerId:", convo.providerId);
+console.log("🧪 convo.customerId:", convo.customerId);
+console.log("🧪 sender:", sender);
+
 
     // Update conversation summary (used by Messages list)
     convo.lastMessageAt = now;
