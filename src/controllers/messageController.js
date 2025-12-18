@@ -5,21 +5,18 @@ const sendError = (res, status, message) =>
   res.status(status).json({ success: false, message });
 
 /**
- * Resolve sender role and id safely
+ * Resolve sender role using the CONVERSATION (not JWT claims)
  */
-const getSenderContext = (req) => {
-  if (req.user?.providerId) {
-    return {
-      role: "provider",
-      senderId: req.user.providerId,
-    };
+const getSenderContext = (req, convo) => {
+  const userId = String(req.user?._id);
+  if (!userId) return null;
+
+  if (String(convo.providerId) === userId) {
+    return { role: "provider", senderId: convo.providerId };
   }
 
-  if (req.user?._id) {
-    return {
-      role: "customer",
-      senderId: req.user._id,
-    };
+  if (String(convo.customerId) === userId) {
+    return { role: "customer", senderId: convo.customerId };
   }
 
   return null;
@@ -28,32 +25,16 @@ const getSenderContext = (req) => {
 /**
  * GET /api/messages/:conversationId
  * Cursor pagination via ?before=<ISO>
- * Returns messages oldest → newest
  */
 export const listMessages = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const sender = getSenderContext(req);
 
-    if (!sender) return sendError(res, 401, "Unauthorized.");
-
-    // Role-aware conversation access
     const convo = await Conversation.findById(conversationId);
-
-if (!convo) {
-  return sendError(res, 404, "Conversation not found.");
-}
-
-// 🔐 Hard permission check
-if (
-  (sender.role === "provider" && String(convo.providerId) !== String(sender.senderId)) ||
-  (sender.role === "customer" && String(convo.customerId) !== String(sender.senderId))
-) {
-  return sendError(res, 403, "Access denied.");
-}
-
-
     if (!convo) return sendError(res, 404, "Conversation not found.");
+
+    const sender = getSenderContext(req, convo);
+    if (!sender) return sendError(res, 403, "Access denied.");
 
     const limit = Math.min(parseInt(req.query.limit || "40", 10), 100);
     const before = req.query.before ? new Date(req.query.before) : null;
@@ -63,21 +44,16 @@ if (
       q.createdAt = { $lt: before };
     }
 
-    // Fetch newest first, then reverse for UI
     const batch = await Message.find(q)
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean();
 
-    const messages = batch.reverse();
-
-    const nextBefore =
-      batch.length === limit ? batch[batch.length - 1].createdAt : null;
-
     return res.json({
       success: true,
-      messages,
-      nextBefore,
+      messages: batch.reverse(),
+      nextBefore:
+        batch.length === limit ? batch[batch.length - 1].createdAt : null,
     });
   } catch (err) {
     console.log("❌ listMessages:", err);
@@ -87,36 +63,18 @@ if (
 
 /**
  * POST /api/messages/:conversationId
- * Body: { text?, imageUrls? }
  */
 export const sendMessage = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const sender = getSenderContext(req);
 
-    if (!sender) return sendError(res, 401, "Unauthorized.");
-
-    // Role-aware conversation access
-   const convo = await Conversation.findById(conversationId);
-
-if (!convo) {
-  return sendError(res, 404, "Conversation not found.");
-}
-
-// 🔐 Hard permission check (EXACT MATCH with listMessages)
-if (
-  (sender.role === "provider" &&
-    String(convo.providerId) !== String(sender.senderId)) ||
-  (sender.role === "customer" &&
-    String(convo.customerId) !== String(sender.senderId))
-) {
-  return sendError(res, 403, "Access denied.");
-}
-
+    const convo = await Conversation.findById(conversationId);
     if (!convo) return sendError(res, 404, "Conversation not found.");
 
-    const { text, imageUrls } = req.body || {};
+    const sender = getSenderContext(req, convo);
+    if (!sender) return sendError(res, 403, "Access denied.");
 
+    const { text, imageUrls } = req.body || {};
     const cleanText = typeof text === "string" ? text.trim() : "";
     const isImage = Array.isArray(imageUrls) && imageUrls.length > 0;
 
@@ -127,23 +85,15 @@ if (
     const now = new Date();
 
     const msg = await Message.create({
-      conversation: conversationId, // ✅ correct field
+      conversation: conversationId,
       sender: sender.senderId,
       senderRole: sender.role,
-
       text: cleanText,
       imageUrls: isImage ? imageUrls.slice(0, 12) : [],
-
       deliveredAt: now,
       readAt: null,
     });
 
-console.log("🧪 convo.providerId:", convo.providerId);
-console.log("🧪 convo.customerId:", convo.customerId);
-console.log("🧪 sender:", sender);
-
-
-    // Update conversation summary (used by Messages list)
     convo.lastMessageAt = now;
     convo.lastMessageSenderRole = sender.role;
     convo.lastMessageText = isImage
