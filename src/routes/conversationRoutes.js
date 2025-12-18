@@ -5,8 +5,9 @@ import {
   getOrCreateConversationWithCustomer,
   listMyConversations,
   getConversationById,
-  markConversationReadAsProvider,
+  markConversationRead,
 } from "../controllers/conversationController.js";
+
 
 const router = express.Router();
 
@@ -30,7 +31,7 @@ router.post(
   "/:conversationId/read",
   protect,
   validateObjectId("conversationId"),
-  markConversationReadAsProvider
+  markConversationRead
 );
 
 export default router;
