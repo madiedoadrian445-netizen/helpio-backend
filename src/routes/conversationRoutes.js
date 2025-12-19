@@ -8,9 +8,12 @@ import {
   markConversationRead,
 } from "../controllers/conversationController.js";
 
-
 const router = express.Router();
 
+/**
+ * Create or fetch a conversation from a SERVICE listing
+ * Customer → Provider
+ */
 router.post(
   "/with-service/:providerId",
   protect,
@@ -18,8 +21,16 @@ router.post(
   getOrCreateConversationWithCustomer
 );
 
+/**
+ * List all conversations for the logged-in user
+ * (provider OR customer)
+ */
 router.get("/", protect, listMyConversations);
 
+/**
+ * Get a single conversation by ID
+ * (provider OR customer)
+ */
 router.get(
   "/:conversationId",
   protect,
@@ -27,6 +38,9 @@ router.get(
   getConversationById
 );
 
+/**
+ * Mark a conversation as read
+ */
 router.post(
   "/:conversationId/read",
   protect,
