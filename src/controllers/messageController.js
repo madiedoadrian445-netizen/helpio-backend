@@ -7,19 +7,24 @@ const sendError = (res, status, message) =>
 /**
  * Resolve sender role using the CONVERSATION (not JWT claims)
  */
-const getSenderContext = (req, convo) => {
-  const userId = String(req.user?._id);
-  if (!userId) return null;
+/**
+ * Resolve sender role STRICTLY from authenticated user
+ * NEVER from conversation ownership
+ */
+const getSenderContext = (req) => {
+  if (!req.user) return null;
 
-  if (String(convo.providerId) === userId) {
-    return { role: "provider", senderId: convo.providerId };
+  if (req.user.providerId) {
+    return {
+      role: "provider",
+      senderId: req.user.providerId,
+    };
   }
 
-  if (String(convo.customerId) === userId) {
-    return { role: "customer", senderId: convo.customerId };
-  }
-
-  return null;
+  return {
+    role: "customer",
+    senderId: req.user._id,
+  };
 };
 
 /**
@@ -33,7 +38,8 @@ export const listMessages = async (req, res) => {
     const convo = await Conversation.findById(conversationId);
     if (!convo) return sendError(res, 404, "Conversation not found.");
 
-    const sender = getSenderContext(req, convo);
+    const sender = getSenderContext(req);
+
     if (!sender) return sendError(res, 403, "Access denied.");
 
     const limit = Math.min(parseInt(req.query.limit || "40", 10), 100);
@@ -72,7 +78,7 @@ export const sendMessage = async (req, res) => {
     const convo = await Conversation.findById(conversationId);
     if (!convo) return sendError(res, 404, "Conversation not found.");
 
-    const sender = getSenderContext(req, convo);
+   const sender = getSenderContext(req);
     if (!sender) return sendError(res, 403, "Access denied.");
 
     const { text, imageUrls } = req.body || {};
