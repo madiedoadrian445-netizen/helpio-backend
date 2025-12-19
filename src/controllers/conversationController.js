@@ -86,13 +86,22 @@ export const listMyConversations = async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit || "50", 10), 100);
     const includeArchived = req.query.includeArchived === "true";
 
+    // ✅ ADD THIS
     const isProvider = !!req.user?.providerId;
 
-    const q = isProvider
-      ? { providerId: req.user.providerId }
-      : { customerId: req.user._id };
+    const or = [];
 
-    // Optional archive handling (only if your schema has both fields)
+    if (req.user?.providerId) {
+      or.push({ providerId: req.user.providerId });
+    }
+
+    if (req.user?._id) {
+      or.push({ customerId: req.user._id });
+    }
+
+    const q = { $or: or };
+
+    // Optional archive handling
     if (!includeArchived) {
       if (isProvider) q.providerArchivedAt = null;
       else q.customerArchivedAt = null;
@@ -122,13 +131,10 @@ export const listMyConversations = async (req, res) => {
 
       return {
         _id: c._id,
-
         customerId: c.customerId?._id || c.customerId,
         serviceId: c.serviceId?._id || null,
-
         serviceTitle: c.serviceId?.title || null,
         serviceThumbnail: c.serviceId?.photos?.[0] || null,
-
         customer: c.customerId
           ? {
               name: c.customerId.name,
@@ -136,7 +142,6 @@ export const listMyConversations = async (req, res) => {
               phone: c.customerId.phone,
             }
           : null,
-
         lastMessageText: c.lastMessageText || "",
         unread,
         updatedAt: c.updatedAt,
@@ -231,7 +236,7 @@ export const markConversationRead = async (req, res) => {
 
    await Message.updateMany(
   {
-    conversation: conversationId, // ✅ CORRECT
+    conversationId, // ✅ CORRECT FIELD
     senderRole: req.user?.providerId ? "customer" : "provider",
     readAt: null,
   },
