@@ -22,6 +22,18 @@ router.post(
 );
 
 /**
+ * Create or fetch a conversation from CRM (no service context)
+ * Provider → Customer
+ */
+router.post(
+  "/with-customer/:customerId",
+  protect,
+  validateObjectId("customerId"),
+  getOrCreateConversationWithCustomer
+);
+
+
+/**
  * List all conversations for the logged-in user
  * (provider OR customer)
  */
