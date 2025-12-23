@@ -27,33 +27,63 @@ const getConversationAccessQuery = (req, conversationId) => {
 
 export const getOrCreateConversationWithCustomer = async (req, res) => {
   try {
-    const providerId = req.params.providerId;   // ✅ TARGET PROVIDER
-    const customerId = req.user._id;             // ✅ CUSTOMER
+    const providerId =
+      req.params.providerId || req.user?.providerId;
+
+    const customerId =
+      req.params.customerId || req.user?._id;
+
     const { serviceId } = req.body;
 
     if (!providerId || !customerId) {
       return sendError(res, 401, "Unauthorized.");
     }
 
-    if (!serviceId) {
-      return sendError(res, 400, "serviceId is required.");
+    // ===============================
+    // SERVICE-BASED CONVERSATION
+    // ===============================
+    if (serviceId) {
+      const listing = await Listing.findById(serviceId).select("_id isActive");
+
+      if (!listing || listing.isActive === false) {
+        return sendError(
+          res,
+          404,
+          "Messaging is only available for live listings."
+        );
+      }
+
+      let convo = await Conversation.findOne({
+        providerId,
+        customerId,
+        serviceId,
+      });
+
+      if (!convo) {
+        const now = new Date();
+
+        convo = await Conversation.create({
+          providerId,
+          customerId,
+          serviceId,
+          lastMessageAt: now,
+          lastMessageText: "Conversation started",
+          lastMessageSenderRole: "system",
+          providerLastReadAt: now,
+          customerLastReadAt: null,
+        });
+      }
+
+      return res.json({ success: true, conversation: convo });
     }
 
-    // 🔥 Validate listing is live
-    const listing = await Listing.findById(serviceId).select("_id isActive");
-
-    if (!listing || listing.isActive === false) {
-      return sendError(
-        res,
-        404,
-        "Messaging is only available for live listings."
-      );
-    }
-
+    // ===============================
+    // CRM-BASED CONVERSATION
+    // ===============================
     let convo = await Conversation.findOne({
       providerId,
       customerId,
-      serviceId,
+      serviceId: null,
     });
 
     if (!convo) {
@@ -62,16 +92,13 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
       convo = await Conversation.create({
         providerId,
         customerId,
-        serviceId,
+        serviceId: null,
         lastMessageAt: now,
         lastMessageText: "Conversation started",
         lastMessageSenderRole: "system",
         providerLastReadAt: now,
         customerLastReadAt: null,
       });
-    } else {
-      convo.providerLastReadAt = new Date();
-      await convo.save();
     }
 
     return res.json({ success: true, conversation: convo });
@@ -86,22 +113,12 @@ export const listMyConversations = async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit || "50", 10), 100);
     const includeArchived = req.query.includeArchived === "true";
 
-    // ✅ ADD THIS
     const isProvider = !!req.user?.providerId;
 
-    const or = [];
+    const q = isProvider
+      ? { providerId: req.user.providerId }
+      : { customerId: req.user._id };
 
-    if (req.user?.providerId) {
-      or.push({ providerId: req.user.providerId });
-    }
-
-    if (req.user?._id) {
-      or.push({ customerId: req.user._id });
-    }
-
-    const q = { $or: or };
-
-    // Optional archive handling
     if (!includeArchived) {
       if (isProvider) q.providerArchivedAt = null;
       else q.customerArchivedAt = null;
@@ -110,11 +127,11 @@ export const listMyConversations = async (req, res) => {
     const conversations = await Conversation.find(q)
       .populate("customerId", "name avatar phone")
       .populate("serviceId", "title photos")
-      .sort({ lastMessageAt: -1, createdAt: -1, updatedAt: -1 })
+      .sort({ lastMessageAt: -1, updatedAt: -1 })
       .limit(limit)
       .lean();
 
-    const withUnread = conversations.map((c) => {
+    const mapped = conversations.map((c) => {
       const last = c.lastMessageAt ? new Date(c.lastMessageAt).getTime() : 0;
 
       const read = isProvider
@@ -131,10 +148,15 @@ export const listMyConversations = async (req, res) => {
 
       return {
         _id: c._id,
+
+        // 🔥 REQUIRED FOR CHAT RECOVERY
+        providerId: c.providerId,
         customerId: c.customerId?._id || c.customerId,
         serviceId: c.serviceId?._id || null,
+
         serviceTitle: c.serviceId?.title || null,
         serviceThumbnail: c.serviceId?.photos?.[0] || null,
+
         customer: c.customerId
           ? {
               name: c.customerId.name,
@@ -142,13 +164,14 @@ export const listMyConversations = async (req, res) => {
               phone: c.customerId.phone,
             }
           : null,
+
         lastMessageText: c.lastMessageText || "",
         unread,
         updatedAt: c.updatedAt,
       };
     });
 
-    return res.json({ success: true, conversations: withUnread });
+    return res.json({ success: true, conversations: mapped });
   } catch (err) {
     console.log("❌ listMyConversations:", err);
     return sendError(res, 500, "Server error.");
