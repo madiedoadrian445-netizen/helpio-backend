@@ -2,7 +2,6 @@ import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import { Listing } from "../models/Listing.js";
 
-
 const sendError = (res, status, message) =>
   res.status(status).json({ success: false, message });
 
@@ -24,7 +23,9 @@ const getConversationAccessQuery = (req, conversationId) => {
   return { _id: conversationId, customerId: req.user._id };
 };
 
-
+/* =========================================================
+   CREATE OR FETCH CONVERSATION
+   ========================================================= */
 export const getOrCreateConversationWithCustomer = async (req, res) => {
   try {
     const providerId =
@@ -39,9 +40,9 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
       return sendError(res, 401, "Unauthorized.");
     }
 
-    // ===============================
-    // SERVICE-BASED CONVERSATION
-    // ===============================
+    /* ===============================
+       SERVICE-BASED CONVERSATION
+       =============================== */
     if (serviceId) {
       const listing = await Listing.findById(serviceId).select("_id isActive");
 
@@ -59,9 +60,9 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
         serviceId,
       });
 
-      if (!convo) {
-        const now = new Date();
+      const now = new Date();
 
+      if (!convo) {
         convo = await Conversation.create({
           providerId,
           customerId,
@@ -72,14 +73,19 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
           providerLastReadAt: now,
           customerLastReadAt: null,
         });
+      } else {
+        // 🔥 CRITICAL FIX — ensures it shows in Messages list
+        convo.lastMessageAt = now;
+        convo.updatedAt = now;
+        await convo.save();
       }
 
       return res.json({ success: true, conversation: convo });
     }
 
-    // ===============================
-    // CRM-BASED CONVERSATION
-    // ===============================
+    /* ===============================
+       CRM-BASED CONVERSATION
+       =============================== */
     let convo = await Conversation.findOne({
       providerId,
       customerId,
@@ -108,6 +114,9 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
   }
 };
 
+/* =========================================================
+   LIST MY CONVERSATIONS
+   ========================================================= */
 export const listMyConversations = async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit || "50", 10), 100);
@@ -178,7 +187,9 @@ export const listMyConversations = async (req, res) => {
   }
 };
 
-
+/* =========================================================
+   CONVERSATION META
+   ========================================================= */
 export const getConversationMeta = async (req, res) => {
   try {
     const providerId = getProviderId(req);
@@ -202,8 +213,9 @@ export const getConversationMeta = async (req, res) => {
   }
 };
 
-
-
+/* =========================================================
+   GET CONVERSATION BY ID
+   ========================================================= */
 export const getConversationById = async (req, res) => {
   try {
     const { conversationId } = req.params;
@@ -228,8 +240,9 @@ export const getConversationById = async (req, res) => {
   }
 };
 
-
-
+/* =========================================================
+   MARK CONVERSATION READ
+   ========================================================= */
 export const markConversationRead = async (req, res) => {
   try {
     const { conversationId } = req.params;
@@ -257,15 +270,14 @@ export const markConversationRead = async (req, res) => {
 
     await convo.save();
 
-   await Message.updateMany(
-  {
-    conversationId, // ✅ CORRECT FIELD
-    senderRole: req.user?.providerId ? "customer" : "provider",
-    readAt: null,
-  },
-  { $set: { readAt: now } }
-);
-
+    await Message.updateMany(
+      {
+        conversationId,
+        senderRole: req.user?.providerId ? "customer" : "provider",
+        readAt: null,
+      },
+      { $set: { readAt: now } }
+    );
 
     return res.json({ success: true });
   } catch (err) {
