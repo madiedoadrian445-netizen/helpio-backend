@@ -64,15 +64,18 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
 
       if (!convo) {
         convo = await Conversation.create({
-          providerId,
-          customerId,
-          serviceId,
-          lastMessageAt: now,
-          lastMessageText: "Conversation started",
-          lastMessageSenderRole: "system",
-          providerLastReadAt: now,
-          customerLastReadAt: null,
-        });
+  providerId,
+  customerId,
+  serviceId,
+  lastMessageAt: now,
+  lastMessageText: "Conversation started",
+  lastMessageSenderRole: "customer",
+
+  // ✅ CORRECT READ STATE
+  providerLastReadAt: null,
+  customerLastReadAt: now,
+});
+
       } else {
         // 🔥 CRITICAL FIX — ensures it shows in Messages list
         convo.lastMessageAt = now;
@@ -101,9 +104,10 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
         serviceId: null,
         lastMessageAt: now,
         lastMessageText: "Conversation started",
-        lastMessageSenderRole: "system",
-        providerLastReadAt: now,
-        customerLastReadAt: null,
+       lastMessageSenderRole: "provider",
+providerLastReadAt: now,
+customerLastReadAt: null,
+
       });
     }
 
