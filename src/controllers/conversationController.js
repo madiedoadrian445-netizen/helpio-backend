@@ -118,36 +118,55 @@ customerLastReadAt: null,
   }
 };
 
+
+
+
 /* =========================================================
    LIST MY CONVERSATIONS
    ========================================================= */
 export const listMyConversations = async (req, res) => {
   try {
+    console.log("🧠 AUTH CONTEXT:", req.user);
+    
     const limit = Math.min(parseInt(req.query.limit || "50", 10), 100);
     const includeArchived = req.query.includeArchived === "true";
 
-    const isProvider = !!req.user?.providerId;
+    const or = [];
 
-    const q = isProvider
-      ? { providerId: req.user.providerId }
-      : { customerId: req.user._id };
-
-    if (!includeArchived) {
-      if (isProvider) q.providerArchivedAt = null;
-      else q.customerArchivedAt = null;
+    // If user can be a provider, include provider-side conversations
+    if (req.user?.providerId) {
+      const providerBranch = { providerId: req.user.providerId };
+      if (!includeArchived) providerBranch.providerArchivedAt = null;
+      or.push(providerBranch);
     }
 
-    const conversations = await Conversation.find(q)
+    // Always include customer-side conversations (if logged in)
+    if (req.user?._id) {
+      const customerBranch = { customerId: req.user._id };
+      if (!includeArchived) customerBranch.customerArchivedAt = null;
+      or.push(customerBranch);
+    }
+
+    if (or.length === 0) {
+      return sendError(res, 401, "Unauthorized.");
+    }
+
+    const conversations = await Conversation.find({ $or: or })
       .populate("customerId", "name avatar phone")
       .populate("serviceId", "title photos")
-      .sort({ lastMessageAt: -1, updatedAt: -1 })
+      .sort({ lastMessageAt: -1, updatedAt: -1, createdAt: -1 })
       .limit(limit)
       .lean();
 
     const mapped = conversations.map((c) => {
+      // Determine the viewer role PER CONVERSATION
+      const isProviderView =
+        !!req.user?.providerId &&
+        String(c.providerId) === String(req.user.providerId);
+
       const last = c.lastMessageAt ? new Date(c.lastMessageAt).getTime() : 0;
 
-      const read = isProvider
+      const read = isProviderView
         ? c.providerLastReadAt
           ? new Date(c.providerLastReadAt).getTime()
           : 0
@@ -157,12 +176,12 @@ export const listMyConversations = async (req, res) => {
 
       const unread =
         last > read &&
-        c.lastMessageSenderRole === (isProvider ? "customer" : "provider");
+        c.lastMessageSenderRole === (isProviderView ? "customer" : "provider");
 
       return {
         _id: c._id,
 
-        // 🔥 REQUIRED FOR CHAT RECOVERY
+        // REQUIRED FOR CHAT RECOVERY
         providerId: c.providerId,
         customerId: c.customerId?._id || c.customerId,
         serviceId: c.serviceId?._id || null,

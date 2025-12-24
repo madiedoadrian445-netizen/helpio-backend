@@ -107,13 +107,17 @@ export const sendMessage = async (req, res) => {
       readAt: null,
     });
 
-    convo.lastMessageAt = now;
-    convo.lastMessageSenderRole = sender.role;
-    convo.lastMessageText = isImage
-      ? `📷 Photo${imageUrls.length > 1 ? "s" : ""}`
-      : cleanText.slice(0, 200);
+   convo.lastMessageAt = now;
+convo.lastMessageSenderRole = sender.role;
+convo.lastMessageText = isImage
+  ? `📷 Photo${imageUrls.length > 1 ? "s" : ""}`
+  : cleanText.slice(0, 200);
 
-    await convo.save();
+// 🔥 CRITICAL FIX — forces it into Messages list
+convo.updatedAt = now;
+
+await convo.save();
+
 
     return res.status(201).json({
       success: true,

@@ -63,24 +63,32 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    // ⭐ 5) LOAD PROVIDER (THIS WAS MISSING)
-    const provider = await Provider.findOne({ user: user._id }).select("_id");
+   // ⭐ 5) LOAD PROVIDER ONLY IF USER ROLE IS PROVIDER
+let providerId = null;
 
-    // 6) Attach enriched user
-    req.user = {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      isVerifiedProvider: user.isVerifiedProvider,
-      providerId: provider?._id || null,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    };
+if (user.role === "provider") {
+  const provider = await Provider.findOne({ user: user._id }).select("_id");
+  providerId = provider?._id || null;
+}
 
-    req.userId = user._id;
+// 6) Attach enriched user
+req.user = {
+  _id: user._id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  isVerifiedProvider: user.isVerifiedProvider,
 
-    next();
+  // 🔥 CRITICAL FIX
+  providerId,
+
+  createdAt: user.createdAt,
+  updatedAt: user.updatedAt,
+};
+
+req.userId = user._id;
+next();
+
   } catch (err) {
     console.error("❌ protect middleware error:", err);
     return res.status(401).json({
