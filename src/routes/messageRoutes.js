@@ -7,7 +7,8 @@ import {
 } from "../controllers/messageController.js";
 
 // 👇 reuse the SAME logic
-import { markConversationRead } from "../controllers/conversationController.js";
+import { markMessagesRead } from "../controllers/messageController.js";
+
 
 const router = express.Router();
 
@@ -30,7 +31,8 @@ router.post(
   "/:conversationId/read",
   protect,
   validateObjectId("conversationId"),
-  markConversationRead
+  markMessagesRead
 );
+
 
 export default router;

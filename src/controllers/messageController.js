@@ -28,6 +28,43 @@ const getSenderContext = (req) => {
 };
 
 /**
+ * POST /api/messages/:conversationId/read
+ * Marks messages as read for the current user
+ */
+export const markMessagesRead = async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+
+    const convo = await Conversation.findById(conversationId);
+    if (!convo) return sendError(res, 404, "Conversation not found.");
+
+    const sender = getSenderContext(req);
+    if (!sender) return sendError(res, 403, "Access denied.");
+
+    const now = new Date();
+
+    // 🔥 CRITICAL: mark unread messages as read
+    await Message.updateMany(
+      {
+        conversationId,
+        senderRole: { $ne: sender.role }, // only messages from OTHER side
+        readAt: null,
+      },
+      {
+        $set: { readAt: now },
+      }
+    );
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.log("❌ markMessagesRead:", err);
+    return sendError(res, 500, "Server error.");
+  }
+};
+
+
+
+/**
  * GET /api/messages/:conversationId
  * Cursor pagination via ?before=<ISO>
  */
