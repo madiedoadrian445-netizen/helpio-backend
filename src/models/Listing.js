@@ -25,11 +25,11 @@ const listingSchema = new mongoose.Schema(
        DESCRIPTION (Required, safe length)
     ------------------------------------------------------ */
     description: {
-      type: String,
-      required: [true, "Listing description is required"],
-      minlength: [10, "Description must be at least 10 characters"],
-      maxlength: [3000, "Description cannot exceed 3000 characters"],
-    },
+  type: String,
+  required: [true, "Listing description is required"],
+  minlength: [0, "Description cannot be empty"],
+  maxlength: [3000, "Description cannot exceed 3000 characters"],
+},
 
     /* -----------------------------------------------------
        PRICE (Required, must be a valid number)
@@ -51,7 +51,7 @@ const listingSchema = new mongoose.Schema(
       type: String,
       required: [true, "Category is required"],
       trim: true,
-      minlength: [2, "Category must be at least 2 characters"],
+      minlength: [1, "Category must be at least 1 character"],
       maxlength: [60, "Category cannot exceed 60 characters"],
       index: true,
     },
