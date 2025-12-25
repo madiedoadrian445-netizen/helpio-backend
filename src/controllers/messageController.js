@@ -68,24 +68,75 @@ export const listMessages = async (req, res) => {
   }
 };
 
+const resolveProviderId = async (req) => {
+  if (req.user?.providerId) return req.user.providerId;
+
+  // CRM user → provider lookup
+  if (req.user?._id) {
+    const convo = await Conversation.findOne({
+      customerId: req.user._id,
+    }).select("providerId");
+
+    return convo?.providerId || null;
+  }
+
+  return null;
+};
+
+
 /**
  * POST /api/messages/:conversationId
  */
 export const sendMessage = async (req, res) => {
   try {
+    console.log("📨 SEND MESSAGE HIT");
+    console.log("🧾 params:", req.params);
+    console.log("🧾 body:", req.body);
+    console.log("🧾 req.user:", {
+      _id: req.user?._id,
+      providerId: req.user?.providerId,
+      hasProvider: !!req.user?.providerId,
+    });
+
     const { conversationId } = req.params;
 
-   let convo = await Conversation.findById(conversationId);
+    console.log("🔍 Looking up conversation:", conversationId);
+    let convo = await Conversation.findById(conversationId);
+    console.log("🧠 convo exists:", !!convo);
 
-// 🧠 CRM FALLBACK — create conversation on send
+    // 🧠 CRM FALLBACK — create conversation on send
 if (!convo && req.body?.recipientId) {
+  console.log("🧠 CRM fallback triggered");
+  console.log("🧠 recipientId:", req.body.recipientId);
+
+  const providerId =
+    req.body.providerId || (await resolveProviderId(req));
+
+  console.log("🧠 resolved providerId:", providerId);
+
+  if (!providerId) {
+    console.log("❌ CRM providerId unresolved");
+    return sendError(res, 403, "Provider context missing.");
+  }
+
   convo = await Conversation.create({
-    providerId: req.user.providerId,
+    providerId,
     customerId: req.body.recipientId,
     createdAt: new Date(),
     updatedAt: new Date(),
   });
+
+  console.log("✅ CRM conversation created:", convo._id);
 }
+
+
+    if (!convo) {
+      console.log("❌ NO CONVERSATION AFTER FALLBACK");
+      return sendError(res, 404, "Conversation not found.");
+    }
+
+    // leave the rest of your logic unchanged
+
 
 // Still not found → real error
 if (!convo) {

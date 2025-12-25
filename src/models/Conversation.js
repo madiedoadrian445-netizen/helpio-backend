@@ -20,11 +20,11 @@ const ConversationSchema = new Schema(
 
     // 🔥 REQUIRED — this was missing
     serviceId: {
-      type: Schema.Types.ObjectId,
-      ref: "Service",
-      required: true,
-      index: true,
-    },
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Service",
+  required: false, // 🔥 FIX
+},
+
 
     // fast list UI
     lastMessageAt: { type: Date, default: null, index: true },
