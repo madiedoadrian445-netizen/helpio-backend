@@ -47,7 +47,8 @@ export const markMessagesRead = async (req, res) => {
     await Message.updateMany(
       {
         conversationId,
-        senderRole: { $ne: sender.role }, // only messages from OTHER side
+       senderId: { $ne: sender.senderId },
+// only messages from OTHER side
         readAt: null,
       },
       {
