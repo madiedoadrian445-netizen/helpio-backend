@@ -75,8 +75,23 @@ export const sendMessage = async (req, res) => {
   try {
     const { conversationId } = req.params;
 
-    const convo = await Conversation.findById(conversationId);
-    if (!convo) return sendError(res, 404, "Conversation not found.");
+   let convo = await Conversation.findById(conversationId);
+
+// 🧠 CRM FALLBACK — create conversation on send
+if (!convo && req.body?.recipientId) {
+  convo = await Conversation.create({
+    providerId: req.user.providerId,
+    customerId: req.body.recipientId,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+}
+
+// Still not found → real error
+if (!convo) {
+  return sendError(res, 404, "Conversation not found.");
+}
+
 
    const sender = getSenderContext(req);
     if (!sender) return sendError(res, 403, "Access denied.");
