@@ -52,9 +52,9 @@ router.post(
 
 // ⭐ Multiple images upload (field: "images")
 router.post(
-  "/multiple",
+  "/",
   protect,
-  uploader.array("images", 15),
+  uploader.array("files", 15), // ✅ MUST MATCH FRONTEND
   uploadImages
 );
 
