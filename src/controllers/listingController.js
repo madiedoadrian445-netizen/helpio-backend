@@ -42,6 +42,7 @@ const getProviderForUser = async (userId) => {
    WHITELISTED FIELDS
 -------------------------------------------------------- */
 const LISTING_ALLOWED_FIELDS = [
+  "businessName", // 🔥 ADD THIS
   "title",
   "description",
   "price",
@@ -56,6 +57,11 @@ const LISTING_ALLOWED_FIELDS = [
 -------------------------------------------------------- */
 const normalizeListingInput = (data = {}) => {
   const cleaned = {};
+
+if (data.businessName !== undefined) {
+  cleaned.businessName = trimString(data.businessName, 120);
+}
+
 
   if (data.title !== undefined) {
     cleaned.title = trimString(data.title, 200);

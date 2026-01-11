@@ -10,6 +10,18 @@ const listingSchema = new mongoose.Schema(
       index: true,
     },
 
+/* -----------------------------------------------------
+   BUSINESS NAME (Company / Provider Display Name)
+------------------------------------------------------ */
+businessName: {
+  type: String,
+  trim: true,
+  minlength: [2, "Business name must be at least 2 characters"],
+  maxlength: [120, "Business name cannot exceed 120 characters"],
+},
+
+
+
     /* -----------------------------------------------------
        TITLE (Required, trimmed, safe length)
     ------------------------------------------------------ */
