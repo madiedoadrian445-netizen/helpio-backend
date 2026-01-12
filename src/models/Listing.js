@@ -15,6 +15,7 @@ const listingSchema = new mongoose.Schema(
 ------------------------------------------------------ */
 businessName: {
   type: String,
+  required: [true, "Business name is required"],
   trim: true,
   minlength: [2, "Business name must be at least 2 characters"],
   maxlength: [120, "Business name cannot exceed 120 characters"],
