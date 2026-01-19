@@ -181,14 +181,18 @@ export const getAllListings = async (req, res) => {
       }
     }
 
-    const [listings, total] = await Promise.all([
-      Listing.find(filter)
-        .sort({ createdAt: sortOrder })
-        .skip((pageNum - 1) * limitNum)
-        .limit(limitNum)
-        .lean(),
-      Listing.countDocuments(filter),
-    ]);
+   const [listings, total] = await Promise.all([
+  Listing.find(filter)
+    .select(
+      "title description price category images location businessName provider createdAt"
+    )
+    .sort({ createdAt: sortOrder })
+    .skip((pageNum - 1) * limitNum)
+    .limit(limitNum)
+    .lean(),
+
+  Listing.countDocuments(filter),
+]);
 
     return res.status(200).json({
       success: true,
@@ -215,7 +219,12 @@ export const getListingById = async (req, res) => {
 
     if (!isValidId(id)) return sendError(res, 400, "Invalid listing ID");
 
-    const listing = await Listing.findById(id).lean();
+   const listing = await Listing.findById(id)
+  .select(
+    "title description price category images location businessName provider createdAt"
+  )
+  .lean();
+
     if (!listing) return sendError(res, 404, "Listing not found");
 
     return res.status(200).json({
