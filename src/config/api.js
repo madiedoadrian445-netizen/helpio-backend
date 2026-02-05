@@ -1,7 +1,16 @@
 // src/config/api.js
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export const API_BASE_URL = "https://helpio-backend.onrender.com";
+export const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ??
+  "https://floors-procedures-flows-jimmy.trycloudflare.com";
+
+console.log(
+  "🔗 API Base URL (fetch api.js) =>",
+  process.env.EXPO_PUBLIC_API_URL,
+  "| resolved =>",
+  API_BASE_URL
+);
 
 /* ------------------------------------------------------------------
    Automatically loads the auth token from AsyncStorage for all calls

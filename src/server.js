@@ -24,6 +24,9 @@ import terminalPaymentSimRoutes from "./routes/terminalPaymentSimRoutes.js";
 import conversationRoutes from "./routes/conversationRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import serviceRoutes from "./routes/service.routes.js";
+import path from "path";
+import { fileURLToPath } from "url";
+
 
 
 console.log("🔑 JWT_SECRET:", process.env.JWT_SECRET);
@@ -71,6 +74,18 @@ import adminLedgerRoutes from "./routes/adminLedgerRoutes.js";
 
 /* ⭐ NEW — FULL ADMIN CRON SUITE */
 import adminCronRoutes from "./routes/adminCronRoutes.js";
+
+
+
+/* ---------------------------------------------------------
+   SIMULATED IMAGE HOSTING (DEV / SEED DATA)
+---------------------------------------------------------- */
+
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+
 
 /* -------------------- Initialize App -------------------- */
 const app = express();
@@ -141,10 +156,32 @@ app.use(
 app.use(mongoSanitize());
 app.use(xss());
 
+
+
 /* -------------------- Compression / JSON -------------------- */
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
+
+
+
+/* ---------------------------------------------------------
+   SEED IMAGE HOSTING (DEV / SEED DATA)
+---------------------------------------------------------- */
+app.use(
+  "/seed-images",
+  express.static(path.join(__dirname, "..", "assets", "seed-images"))
+);
+
+
+/* ---------------------------------------------------------
+   REAL UPLOADED IMAGE HOSTING
+---------------------------------------------------------- */
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "..", "uploads"))
+);
+
 
 /* -------------------- Logging (dev only) -------------------- */
 if (process.env.NODE_ENV !== "production") {
@@ -160,19 +197,28 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
+      // ✅ Allow mobile apps / Expo Go (no origin)
       if (!origin) return callback(null, true);
 
+      // ✅ Allow Cloudflare tunnels (DEV)
+      if (origin.endsWith(".trycloudflare.com")) {
+        return callback(null, true);
+      }
+
+      // ✅ Allow local dev
       if (
-        allowedOrigins.length === 0 &&
-        process.env.NODE_ENV !== "production"
+        origin.startsWith("http://localhost") ||
+        origin.startsWith("http://127.0.0.1")
       ) {
         return callback(null, true);
       }
 
+      // ✅ Production whitelist
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
+      // ❌ Block everything else
       return callback(
         new Error("Not allowed by CORS: origin not whitelisted")
       );
@@ -180,6 +226,8 @@ app.use(
     credentials: true,
   })
 );
+
+
 
 /* -------------------- Rate Limiting -------------------- */
 const apiLimiter = rateLimit({
@@ -326,10 +374,9 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 10000;
 
 connectDB().then(() => {
-  app.listen(PORT, () =>
-    console.log(`🚀 Helpio API running on port ${PORT}`)
-  );
-
+ app.listen(PORT, "0.0.0.0", () =>
+ console.log(`🚀 Helpio API running on port ${PORT}`)
+);
   /* Startup Billing Cron */
   startSubscriptionBillingCron();
 

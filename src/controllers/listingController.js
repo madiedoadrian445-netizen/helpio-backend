@@ -183,13 +183,27 @@ export const getAllListings = async (req, res) => {
 
    const [listings, total] = await Promise.all([
   Listing.find(filter)
-    .select(
-      "title description price category images location businessName provider createdAt"
-    )
-    .sort({ createdAt: sortOrder })
-    .skip((pageNum - 1) * limitNum)
-    .limit(limitNum)
-    .lean(),
+  .populate({
+    path: "provider",
+    select: `
+      businessName
+      isVerified
+      rating
+      completedJobs
+      logo
+      city
+      state
+      simSeeded
+    `
+  })
+  .select(
+    "title description price category images location businessName provider createdAt"
+  )
+  .sort({ createdAt: sortOrder })
+  .skip((pageNum - 1) * limitNum)
+  .limit(limitNum)
+  .lean()
+,
 
   Listing.countDocuments(filter),
 ]);

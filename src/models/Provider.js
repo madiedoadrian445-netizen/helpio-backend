@@ -59,12 +59,13 @@ const providerSchema = new Schema(
     },
 
     phone: {
-      type: String,
-      required: [true, "Business phone is required"],
-      trim: true,
-      minlength: [7, "Phone number seems too short"],
-      maxlength: [20, "Phone number seems too long"]
-    },
+  type: String,
+  trim: true,
+  minlength: [7, "Phone number seems too short"],
+  maxlength: [20, "Phone number seems too long"],
+  default: ""
+},
+
 
     email: {
       type: String,
@@ -127,15 +128,37 @@ const providerSchema = new Schema(
       }
     },
 
+
+
+
+    
     isPublic: { type: Boolean, default: true, index: true },
     isVerified: { type: Boolean, default: false, index: true },
     isSuspended: { type: Boolean, default: false, index: true },
+
+
+// --- Simulation / Dev Seeding Flags ---
+simSeeded: {
+  type: Boolean,
+  default: false,
+  index: true
+},
+
+
+simArchetype: {
+  type: String,
+  trim: true,
+  maxlength: 50
+},
+
 
     rating: { type: Number, default: 0, min: 0, max: 5 },
     completedJobs: { type: Number, default: 0, min: 0 }
   },
   { timestamps: true }
 );
+
+
 
 /* -------------------------------------------------------
    INDEXES

@@ -21,11 +21,26 @@ const parseIntEnv = (name, fallback) => {
  *  - Creates a SuspiciousEvent ('attack_bruteforce' or 'attack_credential_stuffing')
  *  - Returns 429 Too Many Requests
  */
+
+
+
 export const authAttackPrecheck = async (req, res, next) => {
   try {
+    // ✅ DEV / EXPO / TUNNEL BYPASS (NO DB, NO BLOCKING)
+    if (
+      process.env.NODE_ENV !== "production" ||
+      req.headers["user-agent"]?.includes("Expo") ||
+      req.headers["user-agent"]?.includes("okhttp")
+    ) {
+      console.log("🛡️ authAttackPrecheck bypassed (dev/mobile)");
+      return next();
+    }
+
     const ip = req.ip;
-    const emailRaw = req.body?.email || "";
-    const email = emailRaw.toLowerCase().trim();
+const emailRaw = req.body?.email || "";
+const email = emailRaw.toLowerCase().trim();
+
+
 
     // If we don't have at least an email or IP, there's nothing smart to check
     if (!ip && !email) return next();
