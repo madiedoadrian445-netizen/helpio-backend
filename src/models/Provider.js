@@ -58,13 +58,20 @@ const providerSchema = new Schema(
       maxlength: [100, "Business name cannot exceed 100 characters"]
     },
 
-    phone: {
+   phone: {
   type: String,
   trim: true,
-  minlength: [7, "Phone number seems too short"],
   maxlength: [20, "Phone number seems too long"],
+  validate: {
+    validator: function (v) {
+      if (!v) return true; // allow empty phone
+      return v.length >= 7;
+    },
+    message: "Phone number seems too short"
+  },
   default: ""
 },
+
 
 
     email: {
