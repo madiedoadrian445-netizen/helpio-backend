@@ -26,7 +26,8 @@ const generateRefreshToken = (userId) => {
 
 export const register = async (req, res, next) => {
   try {
-    const { name, email, password, role } = req.body;
+   const { name, email, password } = req.body;
+
 
     if (!name || !email || !password) {
       return res.status(400).json({
@@ -77,41 +78,38 @@ export const register = async (req, res, next) => {
     } catch (err) {
       console.error("Compromised password check failed:", err.message);
     }
+// ✅ Default role is CUSTOMER (not provider)
+// 🔒 Public register ALWAYS creates CUSTOMER
+const user = await User.create({
+  name,
+  email: normalizedEmail,
+  password,
+  role: "customer",
+});
 
-    // Create user (default role: provider)
-    const user = await User.create({
-      name,
-      email: normalizedEmail,
-      password,
-      role: role || "provider",
-    });
 
-    // Auto-create Provider profile
-    const provider = await Provider.create({
-      user: user._id,
-      businessName: name,
-      email: normalizedEmail,
-    });
 
-    const accessToken = generateAccessToken(user._id);
-    const refreshToken = generateRefreshToken(user._id);
+const accessToken = generateAccessToken(user._id);
+const refreshToken = generateRefreshToken(user._id);
 
-    user.refreshToken = refreshToken;
-    await user.save();
+user.refreshToken = refreshToken;
+await user.save();
 
-    return res.status(201).json({
-      success: true,
-      token: accessToken,
-      refreshToken,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        isVerifiedProvider: user.isVerifiedProvider,
-        providerId: provider._id,
-      },
-    });
+return res.status(201).json({
+  success: true,
+  token: accessToken,
+  refreshToken,
+  user: {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    isVerifiedProvider: user.isVerifiedProvider,
+  providerId: null, // ✅ customers never have providerId
+
+  },
+});
+
   } catch (err) {
     console.log("REGISTER ERROR:", err);
     next(err);
