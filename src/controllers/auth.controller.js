@@ -283,4 +283,105 @@ export const logout = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+
 };
+
+
+/* ---------------------- REGISTER PROVIDER ---------------------- */
+
+export const registerProvider = async (req, res, next) => {
+  try {
+    const { name, email, password, companyName } = req.body;
+
+    if (!name || !email || !password || !companyName) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, email, password, and company name are required",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const existing = await User.findOne({ email: normalizedEmail });
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: "Email already in use",
+      });
+    }
+
+    /* ---------- Compromised password check ---------- */
+    try {
+      const result = await checkPasswordCompromised(password);
+
+      if (result.compromised) {
+        await SuspiciousEvent.create({
+          user: null,
+          type: "compromised_password",
+          riskScore: result.score,
+          severity: result.severity,
+          ip: req.ip,
+          userAgent: req.headers["user-agent"],
+          metadata: {
+            email: normalizedEmail,
+            reason: result.reason,
+            phase: "register_provider",
+            source: result.source,
+          },
+        });
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "This password is too weak or appears in public breach lists. Please choose a stronger password.",
+        });
+      }
+    } catch (err) {
+      console.error("Compromised password check failed:", err.message);
+    }
+
+    /* ---------- Create USER ---------- */
+    const user = await User.create({
+      name,
+      email: normalizedEmail,
+      password,
+      role: "provider",
+      isVerifiedProvider: false,
+    });
+
+    /* ---------- Create PROVIDER ---------- */
+    const provider = await Provider.create({
+      user: user._id,
+      companyName,
+    });
+
+    /* ---------- Tokens ---------- */
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    return res.status(201).json({
+      success: true,
+      token: accessToken,
+      refreshToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isVerifiedProvider: user.isVerifiedProvider,
+        providerId: provider._id,
+      },
+    });
+  } catch (err) {
+    console.log("REGISTER PROVIDER ERROR:", err);
+    next(err);
+  }
+};
+
+
+
+  
+
