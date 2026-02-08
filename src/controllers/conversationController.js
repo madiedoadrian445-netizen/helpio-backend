@@ -151,9 +151,11 @@ export const listMyConversations = async (req, res) => {
       return sendError(res, 401, "Unauthorized.");
     }
 
-    const conversations = await Conversation.find({ $or: or })
-      .populate("customerId", "name avatar phone")
-      .populate("serviceId", "title photos")
+   const conversations = await Conversation.find({ $or: or })
+  .populate("customerId", "name avatar phone")
+  .populate("providerId", "name companyName avatar") // ⭐ ADD THIS
+  .populate("serviceId", "title photos")
+
       .sort({ lastMessageAt: -1, updatedAt: -1, createdAt: -1 })
       .limit(limit)
       .lean();
@@ -196,6 +198,15 @@ export const listMyConversations = async (req, res) => {
               phone: c.customerId.phone,
             }
           : null,
+
+provider: c.providerId
+  ? {
+      name: c.providerId.name,
+      companyName: c.providerId.companyName,
+      avatar: c.providerId.avatar,
+    }
+  : null,
+
 
         lastMessageText: c.lastMessageText || "",
         unread,
