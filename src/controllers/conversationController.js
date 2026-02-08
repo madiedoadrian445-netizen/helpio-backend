@@ -154,7 +154,8 @@ export const listMyConversations = async (req, res) => {
    const conversations = await Conversation.find({ $or: or })
   .populate("customerId", "name avatar phone")
   .populate("providerId", "name companyName avatar") // ⭐ ADD THIS
-  .populate("serviceId", "title photos")
+  .populate("serviceId", "title photos businessName")
+
 
       .sort({ lastMessageAt: -1, updatedAt: -1, createdAt: -1 })
       .limit(limit)
@@ -190,6 +191,7 @@ export const listMyConversations = async (req, res) => {
 
         serviceTitle: c.serviceId?.title || null,
         serviceThumbnail: c.serviceId?.photos?.[0] || null,
+        businessName: c.serviceId?.businessName || null,
 
         customer: c.customerId
           ? {
