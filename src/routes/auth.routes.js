@@ -13,6 +13,9 @@ import { devLogin } from "../controllers/dev.controller.js";
 
 import { logAuthEvent } from "../utils/authLogger.js";
 import { authAttackPrecheck } from "../middleware/authAttackPrecheck.js";
+import { registerProvider } from "../controllers/auth.controller.js";
+
+
 
 // ⭐ Password Reset Controllers
 import {
@@ -71,6 +74,14 @@ router.post("/register", async (req, res, next) => {
     next(err);
   }
 });
+
+
+/* ----------------------------------------------------------
+   REGISTER PROVIDER
+---------------------------------------------------------- */
+router.post("/register-provider", registerProvider);
+
+
 
 /* ----------------------------------------------------------
    LOGIN — now protected by authAttackPrecheck
