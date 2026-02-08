@@ -44,7 +44,10 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
        SERVICE-BASED CONVERSATION
        =============================== */
     if (serviceId) {
-      const listing = await Listing.findById(serviceId).select("_id isActive");
+  const listing = await Listing.findById(serviceId)
+  .select("_id isActive businessName title photos")
+  .lean();
+
 
       if (!listing || listing.isActive === false) {
         return sendError(
@@ -63,18 +66,22 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
       const now = new Date();
 
       if (!convo) {
-        convo = await Conversation.create({
+       convo = await Conversation.create({
   providerId,
   customerId,
   serviceId,
+
+  // ⭐ store snapshot for safety (optional but good)
+  businessName: listing?.businessName || null,
+
   lastMessageAt: now,
   lastMessageText: "Conversation started",
   lastMessageSenderRole: "customer",
 
-  // ✅ CORRECT READ STATE
   providerLastReadAt: null,
   customerLastReadAt: now,
 });
+
 
       } else {
         // 🔥 CRITICAL FIX — ensures it shows in Messages list
@@ -98,25 +105,17 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
     if (!convo) {
       const now = new Date();
 
-      // 🔥 fetch listing to capture businessName at creation time
-const listingFull = await Listing.findById(serviceId)
-  .select("businessName title photos")
-  .lean();
-
-convo = await Conversation.create({
+   convo = await Conversation.create({
   providerId,
   customerId,
-  serviceId,
-
-  // ⭐ CRITICAL FIX
-  businessName: listingFull?.businessName || null,
+  serviceId: null, // CRM conversations do NOT use listings
 
   lastMessageAt: now,
   lastMessageText: "Conversation started",
-  lastMessageSenderRole: "customer",
+  lastMessageSenderRole: "provider",
 
-  providerLastReadAt: null,
-  customerLastReadAt: now,
+  providerLastReadAt: now,
+  customerLastReadAt: null,
 });
 
     }
@@ -171,62 +170,74 @@ export const listMyConversations = async (req, res) => {
       .limit(limit)
       .lean();
 
-    const mapped = conversations.map((c) => {
-      // Determine the viewer role PER CONVERSATION
-      const isProviderView =
-        !!req.user?.providerId &&
-        String(c.providerId) === String(req.user.providerId);
+   const mapped = conversations.map((c) => {
+  // Determine viewer role
+  const isProviderView =
+    !!req.user?.providerId &&
+    String(c.providerId?._id || c.providerId) === String(req.user.providerId);
 
-      const last = c.lastMessageAt ? new Date(c.lastMessageAt).getTime() : 0;
+  const last = c.lastMessageAt ? new Date(c.lastMessageAt).getTime() : 0;
 
-      const read = isProviderView
-        ? c.providerLastReadAt
-          ? new Date(c.providerLastReadAt).getTime()
-          : 0
-        : c.customerLastReadAt
-          ? new Date(c.customerLastReadAt).getTime()
-          : 0;
+  const read = isProviderView
+    ? c.providerLastReadAt
+      ? new Date(c.providerLastReadAt).getTime()
+      : 0
+    : c.customerLastReadAt
+    ? new Date(c.customerLastReadAt).getTime()
+    : 0;
 
-      const unread =
-        last > read &&
-        c.lastMessageSenderRole === (isProviderView ? "customer" : "provider");
+  const unread =
+    last > read &&
+    c.lastMessageSenderRole === (isProviderView ? "customer" : "provider");
 
-      return {
-        _id: c._id,
+  // ⭐ FINAL BUSINESS NAME RESOLUTION
+  const businessName =
+    c.serviceId?.businessName ||
+    c.providerId?.companyName ||
+    "Customer";
 
-        // REQUIRED FOR CHAT RECOVERY
-        providerId: c.providerId,
-        customerId: c.customerId?._id || c.customerId,
-        serviceId: c.serviceId?._id || null,
+  return {
+    _id: c._id,
 
-        serviceTitle: c.serviceId?.title || null,
-        serviceThumbnail: c.serviceId?.photos?.[0] || null,
-        businessName: c.serviceId?.businessName || null,
+    // Required IDs
+    providerId: c.providerId?._id || c.providerId,
+    customerId: c.customerId?._id || c.customerId,
+    serviceId: c.serviceId?._id || null,
 
-        customer: c.customerId
-          ? {
-              name: c.customerId.name,
-              avatar: c.customerId.avatar,
-              phone: c.customerId.phone,
-            }
-          : null,
+    // Service info
+    serviceTitle: c.serviceId?.title || null,
+    serviceThumbnail: c.serviceId?.photos?.[0] || null,
 
-provider: c.providerId
-  ? {
-      name: c.providerId.name,
-      companyName: c.providerId.companyName,
-      avatar: c.providerId.avatar,
-    }
-  : null,
+    // ⭐ Display name used by Messages screen
+    businessName,
 
+    // Customer snapshot
+    customer: c.customerId
+      ? {
+          name: c.customerId.name,
+          avatar: c.customerId.avatar,
+          phone: c.customerId.phone,
+        }
+      : null,
 
-        lastMessageText: c.lastMessageText || "",
-        unread,
-        updatedAt: c.updatedAt,
-      };
-    });
+    // Provider snapshot
+    provider: c.providerId
+      ? {
+          name: c.providerId.name,
+          companyName: c.providerId.companyName,
+          avatar: c.providerId.avatar,
+        }
+      : null,
 
-    return res.json({ success: true, conversations: mapped });
+    lastMessageText: c.lastMessageText || "",
+    unread,
+    updatedAt: c.updatedAt,
+  };
+});
+
+// ✅ RESPONSE MUST BE OUTSIDE map()
+return res.json({ success: true, conversations: mapped });
+
   } catch (err) {
     console.log("❌ listMyConversations:", err);
     return sendError(res, 500, "Server error.");
