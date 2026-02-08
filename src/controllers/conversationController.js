@@ -98,17 +98,27 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
     if (!convo) {
       const now = new Date();
 
-      convo = await Conversation.create({
-        providerId,
-        customerId,
-        serviceId: null,
-        lastMessageAt: now,
-        lastMessageText: "Conversation started",
-       lastMessageSenderRole: "provider",
-providerLastReadAt: now,
-customerLastReadAt: null,
+      // 🔥 fetch listing to capture businessName at creation time
+const listingFull = await Listing.findById(serviceId)
+  .select("businessName title photos")
+  .lean();
 
-      });
+convo = await Conversation.create({
+  providerId,
+  customerId,
+  serviceId,
+
+  // ⭐ CRITICAL FIX
+  businessName: listingFull?.businessName || null,
+
+  lastMessageAt: now,
+  lastMessageText: "Conversation started",
+  lastMessageSenderRole: "customer",
+
+  providerLastReadAt: null,
+  customerLastReadAt: now,
+});
+
     }
 
     return res.json({ success: true, conversation: convo });
