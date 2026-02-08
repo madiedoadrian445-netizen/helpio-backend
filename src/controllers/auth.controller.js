@@ -350,10 +350,12 @@ export const registerProvider = async (req, res, next) => {
     });
 
     /* ---------- Create PROVIDER ---------- */
-    const provider = await Provider.create({
-      user: user._id,
-      companyName,
-    });
+   const provider = await Provider.create({
+  user: user._id,
+  email: normalizedEmail,     // ✅ required by schema
+  businessName: companyName,  // ✅ map correctly
+});
+
 
     /* ---------- Tokens ---------- */
     const accessToken = generateAccessToken(user._id);
