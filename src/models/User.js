@@ -41,11 +41,12 @@ const userSchema = new Schema(
     },
 
     role: {
-      type: String,
-      enum: ["user", "provider", "admin"],
-      default: "user",
-      index: true,
-    },
+  type: String,
+  enum: ["customer", "provider", "admin"], // ✅ corrected
+  default: "customer",                     // ✅ correct default
+  index: true,
+},
+
 
     isVerifiedProvider: {
       type: Boolean,
