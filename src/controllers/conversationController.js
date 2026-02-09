@@ -162,7 +162,15 @@ export const listMyConversations = async (req, res) => {
 
    const conversations = await Conversation.find({ $or: or })
   .populate("customerId", "name avatar phone")
- .populate("providerId", "name businessName avatar")
+.populate({
+  path: "providerId",
+  select: "businessName avatar user",
+  populate: {
+    path: "user",
+    select: "name"
+  }
+})
+
   .populate("serviceId", "title photos businessName")
 
 
@@ -194,8 +202,8 @@ export const listMyConversations = async (req, res) => {
 const businessName =
   c.serviceId?.businessName ||
   c.providerId?.businessName ||
+  c.providerId?.user?.name ||
   "Customer";
-
 
   return {
     _id: c._id,
@@ -222,13 +230,14 @@ const businessName =
       : null,
 
     // Provider snapshot
-   provider: c.providerId
+  provider: c.providerId
   ? {
-      name: c.providerId.name,
+      name: c.providerId.user?.name || null,
       businessName: c.providerId.businessName,
       avatar: c.providerId.avatar,
     }
   : null,
+
 
 
     lastMessageText: c.lastMessageText || "",
