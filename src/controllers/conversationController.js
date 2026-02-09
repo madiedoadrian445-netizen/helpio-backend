@@ -162,7 +162,7 @@ export const listMyConversations = async (req, res) => {
 
    const conversations = await Conversation.find({ $or: or })
   .populate("customerId", "name avatar phone")
-  .populate("providerId", "name companyName avatar") // ⭐ ADD THIS
+ .populate("providerId", "name businessName avatar")
   .populate("serviceId", "title photos businessName")
 
 
@@ -191,10 +191,11 @@ export const listMyConversations = async (req, res) => {
     c.lastMessageSenderRole === (isProviderView ? "customer" : "provider");
 
   // ⭐ FINAL BUSINESS NAME RESOLUTION
-  const businessName =
-    c.serviceId?.businessName ||
-    c.providerId?.companyName ||
-    "Customer";
+const businessName =
+  c.serviceId?.businessName ||
+  c.providerId?.businessName ||
+  "Customer";
+
 
   return {
     _id: c._id,
@@ -221,13 +222,14 @@ export const listMyConversations = async (req, res) => {
       : null,
 
     // Provider snapshot
-    provider: c.providerId
-      ? {
-          name: c.providerId.name,
-          companyName: c.providerId.companyName,
-          avatar: c.providerId.avatar,
-        }
-      : null,
+   provider: c.providerId
+  ? {
+      name: c.providerId.name,
+      businessName: c.providerId.businessName,
+      avatar: c.providerId.avatar,
+    }
+  : null,
+
 
     lastMessageText: c.lastMessageText || "",
     unread,
