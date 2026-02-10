@@ -26,6 +26,8 @@ import messageRoutes from "./routes/messageRoutes.js";
 import serviceRoutes from "./routes/service.routes.js";
 import path from "path";
 import { fileURLToPath } from "url";
+import http from "http";
+import { initSocket } from "./socket.js";
 
 
 
@@ -374,9 +376,17 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 10000;
 
 connectDB().then(() => {
- app.listen(PORT, "0.0.0.0", () =>
- console.log(`🚀 Helpio API running on port ${PORT}`)
-);
+  const server = http.createServer(app);
+
+  // ⭐ Initialize Socket.IO
+  initSocket(server);
+
+  server.listen(PORT, "0.0.0.0", () =>
+    console.log(`🚀 Helpio API + Socket.IO running on port ${PORT}`)
+  );
+
+ 
+
   /* Startup Billing Cron */
   startSubscriptionBillingCron();
 

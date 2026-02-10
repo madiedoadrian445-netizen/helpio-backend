@@ -1,5 +1,9 @@
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
+import { getIO } from "../socket.js";
+
+
+
 
 const sendError = (res, status, message) =>
   res.status(status).json({ success: false, message });
@@ -226,11 +230,19 @@ convo.updatedAt = now;
 
 await convo.save();
 
+/* 🔴 REAL-TIME EMIT — sends message instantly to both users */
+try {
+  const io = getIO();
+  io.to(String(convo._id)).emit("newMessage", msg);
+} catch (err) {
+  console.log("Socket emit failed:", err.message);
+}
 
-    return res.status(201).json({
-      success: true,
-      message: msg,
-    });
+return res.status(201).json({
+  success: true,
+  message: msg,
+});
+
   } catch (err) {
     console.log("❌ sendMessage:", err);
     return sendError(res, 500, "Server error.");
