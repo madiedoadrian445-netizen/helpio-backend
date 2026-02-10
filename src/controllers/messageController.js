@@ -63,6 +63,21 @@ export const markMessagesRead = async (req, res) => {
       }
     );
 
+// 🔥 REALTIME READ RECEIPT EMIT
+try {
+  const io = getIO();
+
+  io.to(String(conversationId)).emit("messagesRead", {
+    conversationId,
+    readerId: sender.senderId,
+    readAt: now,
+  });
+} catch (err) {
+  console.log("Socket read emit failed:", err.message);
+}
+
+
+
     return res.json({ success: true });
   } catch (err) {
     console.log("❌ markMessagesRead:", err);
