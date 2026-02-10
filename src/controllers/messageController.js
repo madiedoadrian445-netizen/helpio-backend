@@ -23,9 +23,12 @@ const getSenderContext = (req) => {
 
   return {
     role: "customer",
-    senderId: req.user._id,
+    senderId:
+      req.user.customerId || req.user._id,
   };
 };
+
+
 
 /**
  * POST /api/messages/:conversationId/read
@@ -196,20 +199,21 @@ if (!convo) {
     const now = new Date();
 
     // ✅ FIX: match Message schema EXACTLY
-    const msg = await Message.create({
-      conversationId: conversationId,
-      providerId: convo.providerId,
-      customerId: convo.customerId,
+   const msg = await Message.create({
+  conversationId: convo._id,   // ✅ FIXED
+  providerId: convo.providerId,
+  customerId: convo.customerId,
 
-      senderId: sender.senderId,
-      senderRole: sender.role,
+  senderId: sender.senderId,
+  senderRole: sender.role,
 
-      text: cleanText,
-      imageUrls: isImage ? imageUrls.slice(0, 12) : [],
+  text: cleanText,
+  imageUrls: isImage ? imageUrls.slice(0, 12) : [],
 
-      deliveredAt: now,
-      readAt: null,
-    });
+  deliveredAt: now,
+  readAt: null,
+});
+
 
    convo.lastMessageAt = now;
 convo.lastMessageSenderRole = sender.role;
