@@ -198,17 +198,36 @@ export const listMyConversations = async (req, res) => {
     last > read &&
     c.lastMessageSenderRole === (isProviderView ? "customer" : "provider");
 
-  // ⭐ FINAL BUSINESS NAME RESOLUTION
-const businessName =
-  c.serviceId?.businessName ||
-  c.providerId?.businessName ||
-  c.providerId?.user?.name ||
-  "Customer";
+  // 🔥 Safe participant resolution
+  let customer = null;
+  let provider = null;
+
+  if (c.customerId) {
+    customer = {
+      _id: c.customerId._id,
+      name: c.customerId.name || "Customer",
+      avatar: c.customerId.avatar || null,
+      phone: c.customerId.phone || null,
+    };
+  }
+
+  if (c.providerId) {
+    provider = {
+      _id: c.providerId._id,
+      name: c.providerId.user?.name || "Provider",
+      businessName:
+        c.providerId.businessName ||
+        c.serviceId?.businessName ||
+        "Business",
+      avatar: c.providerId.avatar || null,
+      phone: c.providerId.phone || null,
+    };
+  }
 
   return {
     _id: c._id,
 
-    // Required IDs
+    // IDs
     providerId: c.providerId?._id || c.providerId,
     customerId: c.customerId?._id || c.customerId,
     serviceId: c.serviceId?._id || null,
@@ -217,34 +236,17 @@ const businessName =
     serviceTitle: c.serviceId?.title || null,
     serviceThumbnail: c.serviceId?.photos?.[0] || null,
 
-    // ⭐ Display name used by Messages screen
-    businessName,
-
-    // Customer snapshot
-    customer: c.customerId
-      ? {
-          name: c.customerId.name,
-          avatar: c.customerId.avatar,
-          phone: c.customerId.phone,
-        }
-      : null,
-
-    // Provider snapshot
-  provider: c.providerId
-  ? {
-      name: c.providerId.user?.name || null,
-      businessName: c.providerId.businessName,
-      avatar: c.providerId.avatar,
-    }
-  : null,
-
-
+    // Participants
+    customer,
+    provider,
 
     lastMessageText: c.lastMessageText || "",
     unread,
     updatedAt: c.updatedAt,
   };
 });
+
+
 
 // ✅ RESPONSE MUST BE OUTSIDE map()
 return res.json({ success: true, conversations: mapped });
