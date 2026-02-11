@@ -189,7 +189,12 @@ console.log("================================");
     }
 
    const conversations = await Conversation.find({ $or: or })
-  .populate("customerId", "name avatar phone")
+ .populate({
+  path: "customerId",
+  model: "User",
+  select: "name avatar phone",
+})
+
 .populate({
   path: "providerId",
   select: "businessName avatar user",
