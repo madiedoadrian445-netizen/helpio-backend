@@ -51,19 +51,17 @@ export const markMessagesRead = async (req, res) => {
     const now = new Date();
 
     // 🔥 CRITICAL: mark unread messages as read
-    await Message.updateMany(
+   await Message.updateMany(
   {
     conversationId,
-
-    // only messages from the OTHER participant
-    senderRole: { $ne: sender.role },
-
+    senderId: { $ne: sender.senderId },
     readAt: null,
   },
   {
     $set: { readAt: now },
   }
 );
+
 
 // 🔥 REALTIME READ RECEIPT EMIT
 try {
