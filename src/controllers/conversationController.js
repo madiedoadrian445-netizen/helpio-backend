@@ -31,15 +31,28 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
     const providerId =
       req.params.providerId || req.user?.providerId;
 
-  let customerId =
-  req.params.customerId ||
-  req.body.customerId ||
-  req.user?._id ||   // ⭐ ALWAYS fallback to logged-in user
-  null;
+ // ⭐ Determine customer correctly
+
+let customerId = null;
+
+// If CUSTOMER is logged in → they are the customer
+if (!req.user?.providerId) {
+  customerId = req.user?._id;
+}
+
+// If PROVIDER is logged in → must pass a customerId
+else {
+  customerId = req.params.customerId || req.body.customerId || null;
+}
 
 if (!customerId) {
-  return sendError(res, 400, "Customer ID is required.");
+  return sendError(
+    res,
+    400,
+    "Customer ID is required when provider starts a conversation."
+  );
 }
+
 
 
 
@@ -145,7 +158,12 @@ if (!customerId) {
    ========================================================= */
 export const listMyConversations = async (req, res) => {
   try {
-    console.log("🧠 AUTH CONTEXT:", req.user);
+console.log("========== AUTH DEBUG ==========");
+console.log("req.user:", req.user);
+console.log("req.user?._id:", req.user?._id);
+console.log("req.user?.providerId:", req.user?.providerId);
+console.log("================================");
+
     
     const limit = Math.min(parseInt(req.query.limit || "50", 10), 100);
     const includeArchived = req.query.includeArchived === "true";
