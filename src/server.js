@@ -1,5 +1,11 @@
 // src/server.js
-import "dotenv/config";
+import dotenv from "dotenv";
+
+dotenv.config(); // always load .env locally
+
+// BUT allow Render env vars to override automatically
+
+
 import express from "express";
 import morgan from "morgan";
 import cors from "cors";
