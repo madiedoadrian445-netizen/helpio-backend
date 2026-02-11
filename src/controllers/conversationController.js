@@ -31,8 +31,24 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
     const providerId =
       req.params.providerId || req.user?.providerId;
 
-    const customerId =
-      req.params.customerId || req.user?._id;
+  let customerId =
+  req.params.customerId ||
+  req.body.customerId ||
+  null;
+
+// If logged in as CUSTOMER → use own id
+if (!customerId && !req.user?.providerId) {
+  customerId = req.user?._id;
+}
+
+if (!customerId) {
+  return sendError(
+    res,
+    400,
+    "Customer ID is required when provider starts a conversation."
+  );
+}
+
 
     const { serviceId } = req.body;
 
@@ -112,7 +128,8 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
 
   lastMessageAt: now,
   lastMessageText: "Conversation started",
-  lastMessageSenderRole: "provider",
+ lastMessageSenderRole: req.user?.providerId ? "provider" : "customer",
+
 
   providerLastReadAt: now,
   customerLastReadAt: null,
