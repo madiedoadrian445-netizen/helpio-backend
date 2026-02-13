@@ -1,6 +1,6 @@
 // src/controllers/listingController.js
 import mongoose from "mongoose";
-import { Listing } from "../models/Listing.js";
+import Listing from "../models/Listing.js";
 import { Provider } from "../models/Provider.js";
 import { deleteFromCloudinary } from "../config/cloudinary.js";
 
