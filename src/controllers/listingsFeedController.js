@@ -1,11 +1,15 @@
 import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
 
-import ListingModule from "../models/Listing.js";
+import { createRequire } from "module";
+
 
 
 import ProviderDailyStat from "../models/ProviderDailyStat.js";
 import FeedSession from "../models/FeedSession.js";
+
+const require = createRequire(import.meta.url);
+const Listing = require("../models/Listing.js");
 
 // ---- V1 Defaults (match your spec) ----
 const SESSION_TTL_MINUTES = 60;
@@ -15,7 +19,7 @@ const IMPRESSION_TOP_N = 30;
 const ACTIVE_WINDOW_DAYS = 7;
 const TARGET_LEADS_PER_PROVIDER_PER_DAY = 3;
 const COOLDOWN_MINUTES_AFTER_LEAD = 45;
-const Listing = ListingModule.default || ListingModule;
+
 // distance tiers (miles)
 const TIER_A = 5;
 const TIER_B = 15;
