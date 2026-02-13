@@ -85,11 +85,27 @@ businessName: {
     /* -----------------------------------------------------
        LOCATION (Safe defaults)
     ------------------------------------------------------ */
-    location: {
-      city: { type: String, default: "Miami" },
-      state: { type: String, default: "FL" },
-      country: { type: String, default: "USA" },
+   /* -----------------------------------------------------
+   LOCATION (Geo-ready)
+------------------------------------------------------ */
+location: {
+  city: { type: String, required: true },
+  state: { type: String, required: true },
+  zip: { type: String },
+
+  coordinates: {
+    type: {
+      type: String,
+      enum: ["Point"],
+      default: "Point",
     },
+    coordinates: {
+      type: [Number], // [lng, lat]
+      required: true,
+      index: "2dsphere",
+    },
+  },
+},
 
     /* -----------------------------------------------------
        SYSTEM FIELDS

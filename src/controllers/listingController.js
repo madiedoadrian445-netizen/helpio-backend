@@ -79,14 +79,28 @@ if (data.businessName !== undefined) {
     cleaned.price = safeNum(data.price);
   }
 
-  if (data.location !== undefined) {
-    const loc = data.location || {};
-    cleaned.location = {
-      city: trimString(loc.city || "", 200),
-      state: trimString(loc.state || "", 200),
-      country: trimString(loc.country || "", 200),
-    };
-  }
+ if (data.location !== undefined) {
+  const loc = data.location || {};
+
+  const lat = Number(loc.lat);
+  const lng = Number(loc.lng);
+
+  cleaned.location = {
+    city: trimString(loc.city || "", 200),
+    state: trimString(loc.state || "", 200),
+    zip: trimString(loc.zip || "", 20),
+
+    // Only include coordinates if valid
+    ...(Number.isFinite(lat) &&
+      Number.isFinite(lng) && {
+        coordinates: {
+          type: "Point",
+          coordinates: [lng, lat],
+        },
+      }),
+  };
+}
+
 
   if (data.images !== undefined) {
     if (Array.isArray(data.images)) {
@@ -224,6 +238,64 @@ export const getAllListings = async (req, res) => {
   }
 };
 
+
+/* -------------------------------------------------------
+   GEO: GET NEARBY LISTINGS
+-------------------------------------------------------- */
+export const getNearbyListings = async (req, res) => {
+  try {
+    const { lat, lng, radius = 25, limit = 20 } = req.query;
+
+    const latitude = Number(lat);
+    const longitude = Number(lng);
+    const radiusMiles = Number(radius);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return sendError(res, 400, "Valid latitude and longitude are required");
+    }
+
+    // Convert miles → meters for MongoDB
+    const radiusMeters = radiusMiles * 1609.34;
+
+    const listings = await Listing.find({
+      isActive: true,
+      "location.coordinates": {
+        $near: {
+          $geometry: {
+            type: "Point",
+            coordinates: [longitude, latitude],
+          },
+          $maxDistance: radiusMeters,
+        },
+      },
+    })
+      .populate({
+        path: "provider",
+        select: `
+          businessName
+          isVerified
+          rating
+          completedJobs
+          logo
+          city
+          state
+          simSeeded
+        `,
+      })
+      .limit(parsePositiveInt(limit, 20, 100))
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      count: listings.length,
+      listings,
+    });
+  } catch (error) {
+    console.error("🔥 GEO NEARBY LISTINGS ERROR:", error);
+    return sendError(res, 500, "Server error fetching nearby listings");
+  }
+};
+
 /* -------------------------------------------------------
    GET LISTING BY ID (Public)
 -------------------------------------------------------- */
@@ -297,14 +369,18 @@ export const createListing = async (req, res) => {
       return sendError(res, 400, "Title is required");
     }
 
-    const listing = await Listing.create({
-      ...data,
-      provider: provider._id,
-      location: data.location || {
-        city: "",
-        state: "",
-        country: "",
-      },
+   if (
+  !data.location ||
+  !data.location.coordinates ||
+  !Array.isArray(data.location.coordinates.coordinates)
+) {
+  return sendError(res, 400, "Valid location with coordinates is required");
+}
+
+const listing = await Listing.create({
+  ...data,
+  provider: provider._id,
+
       isActive: data.isActive ?? true,
       views: 0,
       favorites: 0,
@@ -385,13 +461,17 @@ export const updateListing = async (req, res) => {
     });
 
     // LOCATION NORMALIZATION (if provided)
-    if (incoming.location !== undefined) {
-      listing.location = cleaned.location || {
-        city: "",
-        state: "",
-        country: "",
-      };
-    }
+   if (incoming.location !== undefined) {
+  if (
+    !cleaned.location ||
+    !cleaned.location.coordinates ||
+    !Array.isArray(cleaned.location.coordinates.coordinates)
+  ) {
+    return sendError(res, 400, "Valid location with coordinates is required");
+  }
+
+  listing.location = cleaned.location;
+}
 
     await listing.save();
 
