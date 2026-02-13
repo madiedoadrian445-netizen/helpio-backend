@@ -130,7 +130,8 @@ async function getOrCreateSession({ userId, refresh }) {
 export const getFeed = async (req, res) => {
 
   try {
-    const userId = req.user.id;
+   const userId = req.user?.id || req.user?._id || req.user?.userId;
+
 
     const lat = Number(req.query.lat);
     const lng = Number(req.query.lng);
