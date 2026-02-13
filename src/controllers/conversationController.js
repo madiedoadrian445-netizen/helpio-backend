@@ -1,6 +1,7 @@
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import Listing from "../models/Listing.js";
+import ProviderDailyStat from "../models/ProviderDailyStat.js";
 
 
 const sendError = (res, status, message) =>
@@ -23,6 +24,33 @@ const getConversationAccessQuery = (req, conversationId) => {
   // Customer view
   return { _id: conversationId, customerId: req.user._id };
 };
+
+
+const yyyyMmDd = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
+const recordLeadIfNewConversation = async ({ providerId }) => {
+  if (!providerId) return;
+
+  const day = yyyyMmDd();
+  const cooldownUntil = new Date(Date.now() + 45 * 60 * 1000); // 45 minutes
+
+  await ProviderDailyStat.updateOne(
+    { provider_id: providerId, day },
+    {
+      $inc: { leads: 1 },
+      $set: { cooldown_until: cooldownUntil },
+    },
+    { upsert: true }
+  );
+};
+
+
 
 /* =========================================================
    CREATE OR FETCH CONVERSATION
@@ -81,68 +109,74 @@ if (!customerId) {
       }
 
       let convo = await Conversation.findOne({
-        providerId,
-        customerId,
-        serviceId,
-      });
-
-      const now = new Date();
-
-      if (!convo) {
-       convo = await Conversation.create({
   providerId,
   customerId,
   serviceId,
-
-  // ⭐ store snapshot for safety (optional but good)
-  businessName: listing?.businessName || null,
-
-  lastMessageAt: now,
-  lastMessageText: "Conversation started",
-  lastMessageSenderRole: "customer",
-
-  providerLastReadAt: null,
-  customerLastReadAt: now,
 });
 
+const now = new Date();
 
-      } else {
-        // 🔥 CRITICAL FIX — ensures it shows in Messages list
-        convo.lastMessageAt = now;
-        convo.updatedAt = now;
-        await convo.save();
-      }
+if (!convo) {
+  convo = await Conversation.create({
+    providerId,
+    customerId,
+    serviceId,
+    businessName: listing?.businessName || null,
 
-      return res.json({ success: true, conversation: convo });
+    lastMessageAt: now,
+    lastMessageText: "Conversation started",
+    lastMessageSenderRole: "customer",
+
+    providerLastReadAt: null,
+    customerLastReadAt: now,
+  });
+
+  // ⭐ V1 LEAD TRACKING (ONLY when customer creates NEW convo)
+  if (!req.user?.providerId) {
+    await recordLeadIfNewConversation({ providerId });
+  }
+} else {
+  // 🔥 ensures it shows in Messages list again
+  convo.lastMessageAt = now;
+  convo.updatedAt = now;
+  await convo.save();
+}
+
+return res.json({ success: true, conversation: convo });
+
     }
 
-    /* ===============================
-       CRM-BASED CONVERSATION
-       =============================== */
-    let convo = await Conversation.findOne({
-      providerId,
-      customerId,
-      serviceId: null,
-    });
-
-    if (!convo) {
-      const now = new Date();
-
-   convo = await Conversation.create({
+  /* ===============================
+   CRM-BASED CONVERSATION
+   =============================== */
+let convo = await Conversation.findOne({
   providerId,
   customerId,
-  serviceId: null, // CRM conversations do NOT use listings
-
-  lastMessageAt: now,
-  lastMessageText: "Conversation started",
- lastMessageSenderRole: req.user?.providerId ? "provider" : "customer",
-
-
-  providerLastReadAt: now,
-  customerLastReadAt: null,
+  serviceId: null,
 });
 
-    }
+if (!convo) {
+  const now = new Date();
+
+  convo = await Conversation.create({
+    providerId,
+    customerId,
+    serviceId: null, // CRM conversations do NOT use listings
+
+    lastMessageAt: now,
+    lastMessageText: "Conversation started",
+    lastMessageSenderRole: req.user?.providerId ? "provider" : "customer",
+
+    providerLastReadAt: req.user?.providerId ? now : null,
+    customerLastReadAt: req.user?.providerId ? null : now,
+  });
+
+  // ⭐ V1 LEAD TRACKING — customer started NEW CRM convo
+  if (!req.user?.providerId) {
+    await recordLeadIfNewConversation({ providerId });
+  }
+}
+
 
     return res.json({ success: true, conversation: convo });
   } catch (err) {
