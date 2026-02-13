@@ -1,6 +1,7 @@
 // src/controllers/uploadController.js
 import { deleteFromCloudinary } from "../config/cloudinary.js";
-import { Listing } from "../models/Listing.js";
+import Listing from "../models/Listing.js";
+
 
 /* -------------------------------------------------------
    SINGLE IMAGE UPLOAD
