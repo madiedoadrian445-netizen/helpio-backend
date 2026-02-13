@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
-  "https://floors-procedures-flows-jimmy.trycloudflare.com";
+  "https://helpio-backend.onrender.com";
 
 console.log(
   "🔗 API Base URL (fetch api.js) =>",
