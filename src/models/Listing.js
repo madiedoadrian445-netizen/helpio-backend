@@ -136,4 +136,5 @@ location: {
 listingSchema.index({ category: 1, createdAt: -1 });
 listingSchema.index({ title: "text", description: "text" });
 
-export const Listing = mongoose.model("Listing", listingSchema);
+export default mongoose.model("Listing", listingSchema);
+
