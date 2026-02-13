@@ -13,11 +13,16 @@ import {
   deleteListing,
 } from "../controllers/listingController.js";
 
+import { getFeed } from "../controllers/listingsFeedController.js";
+
 const router = express.Router();
 
 /* ============================================================
    PUBLIC ROUTES — NO AUTH REQUIRED
 ============================================================ */
+
+// ⭐ FEED (must be BEFORE /:id)
+router.get("/feed", protect, getFeed);
 
 // 1️⃣ GET all listings (with pagination + filters)
 router.get("/", getAllListings);
@@ -27,7 +32,6 @@ router.get("/category/:cat", getListingsByCategory);
 
 // 3️⃣ GET listing by ID
 router.get("/:id", validateObjectId("id"), getListingById);
-
 
 /* ============================================================
    PROVIDER ROUTES — AUTH + FRAUD CHECK REQUIRED
