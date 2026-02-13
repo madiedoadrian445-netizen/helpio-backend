@@ -1,15 +1,16 @@
 import crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
 
-import { createRequire } from "module";
+import Listing from "../models/Listing.js";
+
 
 
 
 import ProviderDailyStat from "../models/ProviderDailyStat.js";
 import FeedSession from "../models/FeedSession.js";
 
-const require = createRequire(import.meta.url);
-const Listing = require("../models/Listing.js");
+
+
 
 // ---- V1 Defaults (match your spec) ----
 const SESSION_TTL_MINUTES = 60;
@@ -130,7 +131,18 @@ async function getOrCreateSession({ userId, refresh }) {
 export const getFeed = async (req, res) => {
 
   try {
-   const userId = req.user?.id || req.user?._id || req.user?.userId;
+  const userId =
+  req.user?.id ||
+  req.user?._id ||
+  req.user?.userId ||
+  null;
+
+if (!userId) {
+  return res.status(401).json({
+    success: false,
+    message: "Unauthorized — user missing in request",
+  });
+}
 
 
     const lat = Number(req.query.lat);
@@ -166,55 +178,48 @@ export const getFeed = async (req, res) => {
     // - last_active_at
     // - category (or categories)
     // - provider_service_radius_miles (optional) or serviceRadiusMiles
-    const match = {
-      is_suspended: false,
-      is_verified: true,
-      last_active_at: { $gte: activeWindowCutoff() },
-    };
+   const match = {
+  isActive: true,
+  createdAt: { $gte: activeWindowCutoff() },
+};
 
-    // category filter: adapt to your schema (exact or parent)
-    if (category) {
-      match.category = category; // or { $in: [category, ...children] } if you store parents
-    }
+if (category) {
+  match.category = category;
+}
 
-    // IMPORTANT: $geoNear must be first stage in aggregate
-    const pipeline = [
-      {
-        $geoNear: {
-          near: { type: "Point", coordinates: [lng, lat] },
-          distanceField: "distanceMeters",
-          spherical: true,
-          maxDistance: maxRadiusMeters,
-          query: match,
-        },
-      },
-      // If you enforce "within provider’s service radius"
-      // and you store it on listing as serviceRadiusMiles:
-      // { $addFields: { distanceMiles: { $divide: ["$distanceMeters", 1609.344] } } },
-      // { $match: { $expr: { $lte: ["$distanceMiles", "$serviceRadiusMiles"] } } },
+const pipeline = [
+  {
+    $geoNear: {
+      near: { type: "Point", coordinates: [lng, lat] },
+      key: "location.coordinates",              // ✅ your schema path with 2dsphere
+      distanceField: "distanceMeters",
+      spherical: true,
+      maxDistance: maxRadiusMeters,
+      query: match,
+    },
+  },
+  {
+    $addFields: {
+      distanceMiles: { $divide: ["$distanceMeters", 1609.344] },
+    },
+  },
+  {
+    $project: {
+      _id: 1,
+      provider_id: "$provider",                 // ✅ map schema -> expected field
+      businessName: 1,
+      title: 1,
+      category: 1,
+      photos: "$images",                        // ✅ map images -> photos
+      price: 1,
+      location: "$location.coordinates",        // ✅ return GeoJSON Point object
+      distanceMiles: 1,
+    },
+  },
+  { $limit: 2000 },
+];
 
-      {
-        $addFields: {
-          distanceMiles: { $divide: ["$distanceMeters", 1609.344] },
-        },
-      },
-      // pull only fields you need to send (keep small)
-      {
-        $project: {
-          _id: 1,
-          provider_id: 1,
-          title: 1,
-          category: 1,
-          photos: 1,
-          price: 1,
-          location: 1,
-          distanceMiles: 1,
-        },
-      },
-      { $limit: 2000 }, // safety cap, Miami curated won't exceed
-    ];
-
-    const listings = await Listing.aggregate(pipeline);
+const listings = await Listing.aggregate(pipeline);
 
     if (!listings.length) {
       return res.json({
