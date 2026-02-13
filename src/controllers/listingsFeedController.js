@@ -180,8 +180,8 @@ if (!userId) {
     // - provider_service_radius_miles (optional) or serviceRadiusMiles
    const match = {
   isActive: true,
-  createdAt: { $gte: activeWindowCutoff() },
 };
+
 
 if (category) {
   match.category = category;
@@ -191,7 +191,7 @@ const pipeline = [
   {
     $geoNear: {
       near: { type: "Point", coordinates: [lng, lat] },
-      key: "location.coordinates",              // ✅ your schema path with 2dsphere
+      key: "location.coordinates.coordinates",
       distanceField: "distanceMeters",
       spherical: true,
       maxDistance: maxRadiusMeters,
@@ -212,12 +212,17 @@ const pipeline = [
       category: 1,
       photos: "$images",                        // ✅ map images -> photos
       price: 1,
-      location: "$location.coordinates",        // ✅ return GeoJSON Point object
+      location: "$location.coordinates",
+
       distanceMiles: 1,
     },
   },
   { $limit: 2000 },
 ];
+
+console.log("Running feed aggregation...");
+
+
 
 const listings = await Listing.aggregate(pipeline);
 
@@ -311,7 +316,12 @@ const listings = await Listing.aggregate(pipeline);
       items: pageItems,
     });
   } catch (err) {
-    console.error("feed error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
-  }
+  console.error("🔥 FEED CRASH:", err);
+  return res.status(500).json({
+    success: false,
+    message: err.message,
+    stack: err.stack,
+  });
+}
+
 };
