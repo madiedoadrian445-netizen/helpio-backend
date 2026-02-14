@@ -82,15 +82,29 @@ if (data.businessName !== undefined) {
  if (data.location !== undefined) {
   const loc = data.location || {};
 
-  const lat = Number(loc.lat);
-  const lng = Number(loc.lng);
+  // Support BOTH formats:
+  // 1) { lat, lng }
+  // 2) { coordinates: { coordinates: [lng, lat] } }
+
+  let lat = Number(loc.lat);
+  let lng = Number(loc.lng);
+
+  const nested = loc?.coordinates?.coordinates;
+
+  if (
+    (!Number.isFinite(lat) || !Number.isFinite(lng)) &&
+    Array.isArray(nested) &&
+    nested.length === 2
+  ) {
+    lng = Number(nested[0]);
+    lat = Number(nested[1]);
+  }
 
   cleaned.location = {
     city: trimString(loc.city || "", 200),
     state: trimString(loc.state || "", 200),
     zip: trimString(loc.zip || "", 20),
 
-    // Only include coordinates if valid
     ...(Number.isFinite(lat) &&
       Number.isFinite(lng) && {
         coordinates: {
@@ -100,6 +114,7 @@ if (data.businessName !== undefined) {
       }),
   };
 }
+
 
 
   if (data.images !== undefined) {
