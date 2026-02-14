@@ -76,6 +76,8 @@ import financialStatementRoutes from "./routes/financialStatementRoutes.js";
 import { runMonthlyStatementsCron } from "./cron/monthlyStatementsCron.js";
 import adminTaxRoutes from "./routes/adminTaxRoutes.js";
 import adminProviderFinancialRoutes from "./routes/adminProviderFinancialRoutes.js";
+import feedRoutes from "./routes/feedRoutes.js";
+
 
 /* ⭐ NEW — Admin Ledger Audit Routes */
 import adminLedgerRoutes from "./routes/adminLedgerRoutes.js";
@@ -338,6 +340,7 @@ app.use("/api/payouts", payoutRoutes);
 app.use("/api/terminal", terminalRoutes);
 app.use("/api/admin/payouts", adminPayoutRoutes);
 app.use("/api/admin/ledger", adminLedgerRoutes);
+app.use("/api/feed", feedRoutes);
 
 app.use("/api/payouts/dashboard", providerPayoutDashboardRoutes);
 app.use("/api/financial-statements", financialStatementRoutes);
