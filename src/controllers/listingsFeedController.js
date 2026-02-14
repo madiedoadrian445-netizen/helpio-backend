@@ -225,7 +225,11 @@ console.log("Running feed aggregation...");
 
 
 
-const listings = await Listing.aggregate(pipeline);
+const rawListings = await Listing.aggregate(pipeline);
+
+// 🔥 remove listings missing provider
+const listings = rawListings.filter((l) => l.provider_id);
+
 
     if (!listings.length) {
       return res.json({
@@ -240,15 +244,18 @@ const listings = await Listing.aggregate(pipeline);
     }
 
     // 3) load today’s stats for providers in this result set
-    const providerIds = [...new Set(listings.map((l) => String(l.provider_id)))];
+    const providerIds = [
+  ...new Set(listings.map((l) => String(l.provider_id)).filter(Boolean)),
+];
 
-    const stats = await ProviderDailyStat.find({
-      provider_id: { $in: providerIds },
-      day,
-    }).lean();
+const stats = await ProviderDailyStat.find({
+  providerId: { $in: providerIds },
+  date: day,
+}).lean();
 
     const statsMap = new Map();
-    for (const s of stats) statsMap.set(String(s.provider_id), s);
+    for (const s of stats) statsMap.set(String(s.providerId), s);
+
 
     // 4) tier + weight + deterministic weighted key
     const tiers = { A: [], B: [], C: [], D: [] };
@@ -297,16 +304,20 @@ const listings = await Listing.aggregate(pipeline);
    // 8) impression logging (top N returned results only)
 const impressionItems = pageItems
   .slice(0, IMPRESSION_TOP_N)
-  .filter((it) => it.provider_id); // 🔥 prevent null provider crash
+ .filter((it) => it.provider_id && typeof it.provider_id === "string");
+
+
 
 if (impressionItems.length) {
   const bulk = impressionItems.map((it) => ({
-    updateOne: {
-      filter: { provider_id: it.provider_id, day },
-      update: { $inc: { impressions: 1 } },
-      upsert: true,
-    },
-  }));
+  updateOne: {
+    filter: { providerId: String(it.provider_id), date: day },
+
+    update: { $inc: { impressions: 1 } },
+    upsert: true,
+  },
+}));
+
 
   await ProviderDailyStat.bulkWrite(bulk, { ordered: false });
 }

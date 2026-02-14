@@ -16,7 +16,7 @@ console.log(
    Automatically loads the auth token from AsyncStorage for all calls
 -------------------------------------------------------------------*/
 async function getAuthHeader(passedToken) {
-  const token = passedToken || (await AsyncStorage.getItem("authToken"));
+  const token = passedToken || (await AsyncStorage.getItem("token"));
 
   return token
     ? { Authorization: `Bearer ${token}` }
