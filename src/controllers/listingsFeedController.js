@@ -294,18 +294,23 @@ const listings = await Listing.aggregate(pipeline);
     });
 
     // 8) impression logging (top N returned results only)
-    const impressionItems = pageItems.slice(0, IMPRESSION_TOP_N);
+   // 8) impression logging (top N returned results only)
+const impressionItems = pageItems
+  .slice(0, IMPRESSION_TOP_N)
+  .filter((it) => it.provider_id); // 🔥 prevent null provider crash
 
-    if (impressionItems.length) {
-      const bulk = impressionItems.map((it) => ({
-        updateOne: {
-          filter: { provider_id: it.provider_id, day },
-          update: { $inc: { impressions: 1 } },
-          upsert: true,
-        },
-      }));
-      await ProviderDailyStat.bulkWrite(bulk, { ordered: false });
-    }
+if (impressionItems.length) {
+  const bulk = impressionItems.map((it) => ({
+    updateOne: {
+      filter: { provider_id: it.provider_id, day },
+      update: { $inc: { impressions: 1 } },
+      upsert: true,
+    },
+  }));
+
+  await ProviderDailyStat.bulkWrite(bulk, { ordered: false });
+}
+
 
     return res.json({
       success: true,
