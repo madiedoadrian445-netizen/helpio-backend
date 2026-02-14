@@ -1,9 +1,10 @@
 import express from "express";
 import { getFeed } from "../controllers/listingsFeedController.js";
-import auth from "../middleware/auth.js";
+import { protect } from "../middleware/auth.js";
+
 const router = express.Router();
 
 // GET /api/feed
-router.get("/", authMiddleware, getFeed);
+router.get("/", protect, getFeed);
 
 export default router;
