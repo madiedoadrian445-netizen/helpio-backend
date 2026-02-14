@@ -190,13 +190,14 @@ if (category) {
 const pipeline = [
   {
     $geoNear: {
-      near: { type: "Point", coordinates: [lng, lat] },
-      key: "location.coordinates.coordinates",
-      distanceField: "distanceMeters",
-      spherical: true,
-      maxDistance: maxRadiusMeters,
-      query: match,
-    },
+  near: { type: "Point", coordinates: [lng, lat] },
+  key: "location.coordinates.coordinates",
+  distanceField: "distanceMeters",
+  spherical: true,
+  maxDistance: maxRadiusMeters,
+  query: match,
+},
+
   },
   {
     $addFields: {
