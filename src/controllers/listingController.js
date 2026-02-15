@@ -214,16 +214,8 @@ export const getAllListings = async (req, res) => {
   Listing.find(filter)
   .populate({
     path: "provider",
-    select: `
-      businessName
-      isVerified
-      rating
-      completedJobs
-      logo
-      city
-      state
-      simSeeded
-    `
+   select: "_id businessName phone isVerified rating"
+
   })
   .select(
     "title description price category images location businessName provider createdAt"
@@ -273,32 +265,25 @@ export const getNearbyListings = async (req, res) => {
     const radiusMeters = radiusMiles * 1609.34;
 
     const listings = await Listing.find({
-      isActive: true,
-      "location.coordinates": {
-        $near: {
-          $geometry: {
-            type: "Point",
-            coordinates: [longitude, latitude],
-          },
-          $maxDistance: radiusMeters,
-        },
+  isActive: true,
+  "location.coordinates": {
+    $near: {
+      $geometry: {
+        type: "Point",
+        coordinates: [longitude, latitude],
       },
-    })
-      .populate({
-        path: "provider",
-        select: `
-          businessName
-          isVerified
-          rating
-          completedJobs
-          logo
-          city
-          state
-          simSeeded
-        `,
-      })
-      .limit(parsePositiveInt(limit, 20, 100))
-      .lean();
+      $maxDistance: radiusMeters,
+    },
+  },
+})
+  .populate({
+    path: "provider",
+    select: "_id businessName phone isVerified rating",
+  })
+  .select("title description price category images location businessName provider createdAt")
+  .limit(parsePositiveInt(limit, 20, 100))
+  .lean();
+
 
     return res.status(200).json({
       success: true,
@@ -349,11 +334,12 @@ export const getListingsByCategory = async (req, res) => {
     const cat = trimString(req.params.cat || "", 200);
     const regex = new RegExp(cat, "i");
 
-    const listings = await Listing.find({
+   const listings = await Listing.find({
   category: regex,
   isActive: true,
 })
   .populate("provider", "_id businessName phone isVerified rating")
+  .select("title description price category images location businessName provider createdAt")
   .lean();
 
 
