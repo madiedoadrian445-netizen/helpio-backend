@@ -146,31 +146,9 @@ if (!convo) {
    (new OR existing conversation)
    ========================================================= */
 
-const { text } = req.body;
-
-if (text && text.trim()) {
-  try {
-    await Message.create({
-      conversationId: convo._id,
-      senderId: customerId,
-      senderRole: req.user?.providerId ? "provider" : "customer",
-      text: text.trim(),
-    });
-
-    convo.lastMessageAt = now;
-    convo.lastMessageText = text.trim();
-    convo.lastMessageSenderRole = req.user?.providerId
-      ? "provider"
-      : "customer";
-
-    await convo.save();
-  } catch (msgErr) {
-    console.error("❌ Message creation failed:", msgErr);
-    return sendError(res, 500, "Failed to send message.");
-  }
-}
 
 return res.json({ success: true, conversation: convo });
+
 
 
     }
