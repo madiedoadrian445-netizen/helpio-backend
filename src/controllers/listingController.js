@@ -320,11 +320,14 @@ export const getListingById = async (req, res) => {
 
     if (!isValidId(id)) return sendError(res, 400, "Invalid listing ID");
 
-   const listing = await Listing.findById(id)
+  const listing = await Listing.findById(id)
+  .populate("provider", "_id businessName phone isVerified rating")
   .select(
     "title description price category images location businessName provider createdAt"
   )
   .lean();
+
+
 
     if (!listing) return sendError(res, 404, "Listing not found");
 
@@ -347,9 +350,12 @@ export const getListingsByCategory = async (req, res) => {
     const regex = new RegExp(cat, "i");
 
     const listings = await Listing.find({
-      category: regex,
-      isActive: true,
-    }).lean();
+  category: regex,
+  isActive: true,
+})
+  .populate("provider", "_id businessName phone isVerified rating")
+  .lean();
+
 
     return res.status(200).json({
       success: true,
