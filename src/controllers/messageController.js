@@ -45,8 +45,20 @@ export const markMessagesRead = async (req, res) => {
     const convo = await Conversation.findById(conversationId);
     if (!convo) return sendError(res, 404, "Conversation not found.");
 
-    const sender = getSenderContext(req);
-    if (!sender) return sendError(res, 403, "Access denied.");
+    let sender = getSenderContext(req);
+
+// 🔥 FIRST-TAP AUTH RACE FIX
+if (!sender) {
+  console.log("⏳ sender missing — retrying auth hydration...");
+  await new Promise((r) => setTimeout(r, 120));
+  sender = getSenderContext(req);
+}
+
+if (!sender) {
+  console.log("❌ sender still missing after retry");
+  return sendError(res, 403, "Access denied.");
+}
+
 
     const now = new Date();
 
@@ -98,9 +110,19 @@ export const listMessages = async (req, res) => {
     const convo = await Conversation.findById(conversationId);
     if (!convo) return sendError(res, 404, "Conversation not found.");
 
-    const sender = getSenderContext(req);
+   let sender = getSenderContext(req);
 
-    if (!sender) return sendError(res, 403, "Access denied.");
+// 🔥 FIRST-TAP AUTH HYDRATION FIX
+if (!sender) {
+  console.log("⏳ sender missing — retrying auth hydration...");
+  await new Promise((r) => setTimeout(r, 120));
+  sender = getSenderContext(req);
+}
+
+if (!sender) {
+  console.log("❌ sender still missing after retry");
+  return sendError(res, 403, "Access denied.");
+}
 
     const limit = Math.min(parseInt(req.query.limit || "40", 10), 100);
     const before = req.query.before ? new Date(req.query.before) : null;
@@ -162,7 +184,15 @@ export const sendMessage = async (req, res) => {
 
     console.log("🔍 Looking up conversation:", conversationId);
     let convo = await Conversation.findById(conversationId);
-    console.log("🧠 convo exists:", !!convo);
+console.log("🧠 convo exists:", !!convo);
+
+// 🔥 PRODUCTION FIX — retry once for Mongo write latency
+if (!convo) {
+  console.log("⏳ convo not found — retrying...");
+  await new Promise((r) => setTimeout(r, 120));
+  convo = await Conversation.findById(conversationId);
+  console.log("🔁 retry result:", !!convo);
+}
 
     // 🧠 CRM FALLBACK — create conversation on send
 if (!convo && req.body?.recipientId) {
@@ -204,8 +234,20 @@ if (!convo) {
 }
 
 
-   const sender = getSenderContext(req);
-    if (!sender) return sendError(res, 403, "Access denied.");
+   let sender = getSenderContext(req);
+
+// 🔥 FIRST-TAP AUTH HYDRATION FIX (CRITICAL)
+if (!sender) {
+  console.log("⏳ sender missing — retrying auth hydration...");
+  await new Promise((r) => setTimeout(r, 120));
+  sender = getSenderContext(req);
+}
+
+if (!sender) {
+  console.log("❌ sender still missing after retry");
+  return sendError(res, 403, "Access denied.");
+}
+
 
     const { text, imageUrls } = req.body || {};
     const cleanText = typeof text === "string" ? text.trim() : "";
