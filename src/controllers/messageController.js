@@ -219,7 +219,6 @@ if (!convo && req.body?.recipientId) {
   console.log("✅ CRM conversation created:", convo._id);
 }
 
-
     if (!convo) {
       console.log("❌ NO CONVERSATION AFTER FALLBACK");
       return sendError(res, 404, "Conversation not found.");
@@ -232,6 +231,10 @@ if (!convo && req.body?.recipientId) {
 if (!convo) {
   return sendError(res, 404, "Conversation not found.");
 }
+
+
+
+
 
 
    let sender = getSenderContext(req);
@@ -304,4 +307,74 @@ return res.status(201).json({
     console.log("❌ sendMessage:", err);
     return sendError(res, 500, "Server error.");
   }
+
 };
+
+
+/**
+ * POST /api/conversations/start
+ * Atomic: create conversation + first message
+ */
+export const startConversation = async (req, res) => {
+  try {
+    const { providerId, serviceId, text } = req.body;
+
+    if (!providerId || !text?.trim()) {
+      return sendError(res, 400, "Missing data.");
+    }
+
+    const sender = getSenderContext(req);
+    if (!sender) return sendError(res, 403, "Access denied.");
+
+    let convo = await Conversation.findOne({
+      providerId,
+      customerId: sender.senderId,
+    });
+
+    if (!convo) {
+      convo = await Conversation.create({
+        providerId,
+        customerId: sender.senderId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+
+    const now = new Date();
+
+    const msg = await Message.create({
+      conversationId: convo._id,
+      providerId: convo.providerId,
+      customerId: convo.customerId,
+      senderId: sender.senderId,
+      senderRole: sender.role,
+      text: text.trim(),
+      deliveredAt: now,
+      readAt: null,
+    });
+
+    convo.lastMessageAt = now;
+    convo.lastMessageSenderRole = sender.role;
+    convo.lastMessageText = text.trim().slice(0, 200);
+    convo.updatedAt = now;
+
+    await convo.save();
+
+    try {
+      const io = getIO();
+      io.to(String(convo._id)).emit("newMessage", msg);
+    } catch {}
+
+    return res.status(201).json({
+      success: true,
+      conversation: convo,
+      message: msg,
+    });
+  } catch (err) {
+    console.log("❌ startConversation:", err);
+    return sendError(res, 500, "Server error.");
+  }
+};
+
+
+
