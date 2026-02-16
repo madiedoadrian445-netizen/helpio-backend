@@ -323,24 +323,44 @@ export const startConversation = async (req, res) => {
       return sendError(res, 400, "Missing data.");
     }
 
-    const sender = getSenderContext(req);
-    if (!sender) return sendError(res, 403, "Access denied.");
+   let sender = getSenderContext(req);
 
-    let convo = await Conversation.findOne({
+// 🔥 FIRST-TAP AUTH HYDRATION FIX
+if (!sender) {
+  console.log("⏳ sender missing in startConversation — retrying...");
+  await new Promise((r) => setTimeout(r, 120));
+  sender = getSenderContext(req);
+}
+
+if (!sender) {
+  console.log("❌ sender still missing in startConversation");
+  return sendError(res, 403, "Access denied.");
+}
+
+const now = new Date();
+
+// 🔥 ATOMIC UPSERT (REAL FIX)
+const convo = await Conversation.findOneAndUpdate(
+  {
+    providerId,
+    customerId: sender.senderId,
+  },
+  {
+    $setOnInsert: {
       providerId,
       customerId: sender.senderId,
-    });
+      createdAt: now,
+    },
+    $set: {
+      updatedAt: now,
+    },
+  },
+  {
+    new: true,
+    upsert: true,
+  }
+);
 
-    if (!convo) {
-      convo = await Conversation.create({
-        providerId,
-        customerId: sender.senderId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    }
-
-    const now = new Date();
 
     const msg = await Message.create({
       conversationId: convo._id,
