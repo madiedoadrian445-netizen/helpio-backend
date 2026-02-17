@@ -147,6 +147,39 @@ if (!convo) {
    ========================================================= */
 
 
+/* =========================================================
+   CREATE FIRST MESSAGE IF TEXT PROVIDED
+   ========================================================= */
+const { text } = req.body;
+
+/* =========================================================
+   ENFORCE FIRST MESSAGE FOR SERVICE CONVERSATIONS
+   ========================================================= */
+if (!text || !text.trim()) {
+  return sendError(res, 400, "Message text is required.");
+}
+
+const senderRole = req.user?.providerId ? "provider" : "customer";
+
+const message = await Message.create({
+  conversationId: convo._id,
+  senderRole,
+  text: text.trim(),
+});
+
+// Update conversation metadata
+convo.lastMessageAt = message.createdAt;
+convo.lastMessageText = message.text;
+convo.lastMessageSenderRole = senderRole;
+
+if (senderRole === "customer") {
+  convo.customerLastReadAt = message.createdAt;
+} else {
+  convo.providerLastReadAt = message.createdAt;
+}
+
+await convo.save();
+
 return res.json({ success: true, conversation: convo });
 
 
@@ -156,33 +189,33 @@ return res.json({ success: true, conversation: convo });
   /* ===============================
    CRM-BASED CONVERSATION
    =============================== */
-let convo = await Conversation.findOne({
-  providerId,
-  customerId,
-  serviceId: null,
-});
+const now = new Date();
 
-if (!convo) {
-  const now = new Date();
+const convo = await Conversation.findOneAndUpdate(
+  { providerId, customerId, serviceId },
+  {
+    $setOnInsert: {
+      providerId,
+      customerId,
+      serviceId,
+      businessName: listing?.businessName || null,
+      lastMessageAt: now,
+      lastMessageText: "Conversation started",
+      lastMessageSenderRole: "customer",
+      providerLastReadAt: null,
+      customerLastReadAt: now,
+    },
+  },
+  { new: true, upsert: true }
+);
 
-  convo = await Conversation.create({
-    providerId,
-    customerId,
-    serviceId: null, // CRM conversations do NOT use listings
-
-    lastMessageAt: now,
-    lastMessageText: "Conversation started",
-    lastMessageSenderRole: req.user?.providerId ? "provider" : "customer",
-
-    providerLastReadAt: req.user?.providerId ? now : null,
-    customerLastReadAt: req.user?.providerId ? null : now,
-  });
-
-  // ⭐ V1 LEAD TRACKING — customer started NEW CRM convo
+// Lead tracking ONLY if newly created
+if (convo.createdAt.getTime() === convo.updatedAt.getTime()) {
   if (!req.user?.providerId) {
     await recordLeadIfNewConversation({ providerId });
   }
 }
+
 
 
     return res.json({ success: true, conversation: convo });
