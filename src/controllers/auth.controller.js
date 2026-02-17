@@ -10,11 +10,26 @@ import { SuspiciousEvent } from "../models/SuspiciousEvent.js";               //
 
 /* ----------------------- TOKEN HELPERS ----------------------- */
 
-const generateAccessToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
+const generateAccessToken = async (user) => {
+  const provider = await Provider.findOne({ user: user._id }).select("_id");
+
+  const payload = {
+    id: user._id,
+
+    // 🔥 CRITICAL IDENTITY FIELDS
+    role: user.role || "customer",
+    customerId: user._id,
+    providerId: provider?._id || null,
+
+    // optional but useful
+    isVerifiedProvider: user.isVerifiedProvider || false,
+  };
+
+  return jwt.sign(payload, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || "1h",
   });
 };
+
 
 const generateRefreshToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_REFRESH_SECRET, {
@@ -89,7 +104,8 @@ const user = await User.create({
 
 
 
-const accessToken = generateAccessToken(user._id);
+const accessToken = await generateAccessToken(user);
+
 const refreshToken = generateRefreshToken(user._id);
 
 user.refreshToken = refreshToken;
@@ -135,7 +151,9 @@ export const login = async (req, res, next) => {
         .json({ success: false, message: "Invalid credentials" });
     }
 
-    const accessToken = generateAccessToken(user._id);
+    const accessToken = await generateAccessToken(user);
+
+
     const refreshToken = generateRefreshToken(user._id);
     user.refreshToken = refreshToken;
     await user.save();
@@ -242,7 +260,8 @@ export const refreshToken = async (req, res, next) => {
         .json({ success: false, message: "Invalid refresh token" });
     }
 
-    const newAccessToken = generateAccessToken(user._id);
+    const newAccessToken = await generateAccessToken(user);
+
     const newRefreshToken = generateRefreshToken(user._id);
     user.refreshToken = newRefreshToken;
     await user.save();
@@ -358,7 +377,8 @@ export const registerProvider = async (req, res, next) => {
 
 
     /* ---------- Tokens ---------- */
-    const accessToken = generateAccessToken(user._id);
+   const accessToken = await generateAccessToken(user);
+
     const refreshToken = generateRefreshToken(user._id);
 
     user.refreshToken = refreshToken;
@@ -382,8 +402,3 @@ export const registerProvider = async (req, res, next) => {
     next(err);
   }
 };
-
-
-
-  
-
