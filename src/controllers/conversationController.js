@@ -57,6 +57,16 @@ const recordLeadIfNewConversation = async ({ providerId }) => {
    ========================================================= */
 export const getOrCreateConversationWithCustomer = async (req, res) => {
   try {
+
+      // 🔎 DEBUG LOGS — ADD THESE
+    console.log("========== CONVERSATION DEBUG ==========");
+    console.log("REQ PARAMS:", req.params);
+    console.log("REQ BODY:", req.body);
+    console.log("serviceId type:", typeof req.body?.serviceId);
+    console.log("providerId param:", req.params?.providerId);
+    console.log("req.user:", req.user);
+    console.log("========================================");
+
     const providerId =
       req.params.providerId || req.user?.providerId;
 
@@ -186,24 +196,31 @@ return res.json({ success: true, conversation: convo });
 
     }
 
-  /* ===============================
+ 
+/* ===============================
    CRM-BASED CONVERSATION
    =============================== */
+
 const now = new Date();
 
+// 🔥 Explicit NULL serviceId for CRM
+const crmQuery = {
+  providerId,
+  customerId,
+  serviceId: null,
+};
+
 const convo = await Conversation.findOneAndUpdate(
-  { providerId, customerId, serviceId },
+  crmQuery,
   {
     $setOnInsert: {
-      providerId,
-      customerId,
-      serviceId,
-      businessName: listing?.businessName || null,
+      ...crmQuery,
+      businessName: null,
       lastMessageAt: now,
       lastMessageText: "Conversation started",
-      lastMessageSenderRole: "customer",
-      providerLastReadAt: null,
-      customerLastReadAt: now,
+      lastMessageSenderRole: req.user?.providerId ? "provider" : "customer",
+      providerLastReadAt: req.user?.providerId ? now : null,
+      customerLastReadAt: req.user?.providerId ? null : now,
     },
   },
   { new: true, upsert: true }
@@ -216,9 +233,8 @@ if (convo.createdAt.getTime() === convo.updatedAt.getTime()) {
   }
 }
 
+return res.json({ success: true, conversation: convo });
 
-
-    return res.json({ success: true, conversation: convo });
   } catch (err) {
     console.log("❌ getOrCreateConversationWithCustomer:", err);
     return sendError(res, 500, "Server error.");
