@@ -116,12 +116,20 @@ if (!serviceId && !providerId) {
    =============================== */
 if (serviceId) {
 
+// 🛡 Prevent Mongo CastError crash
+if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+  return sendError(res, 400, "Invalid service ID.");
+}
+
+  
   const listing = await Listing.findById(serviceId)
     .select("_id isActive businessName title images provider")
     .lean();
 
   console.log("🧪 LISTING FOUND:", listing);
 
+
+  
   // 1️⃣ Listing must exist
   if (!listing) {
     return sendError(res, 404, "Listing not found.");
