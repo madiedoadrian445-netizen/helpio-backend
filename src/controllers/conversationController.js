@@ -188,45 +188,11 @@ if (!convo) {
 /* =========================================================
    CREATE FIRST MESSAGE IF TEXT PROVIDED
    ========================================================= */
-const text = req.body?.text;
-
-
-
-
-if (!text || !text.trim()) {
-  return sendError(res, 400, "Message text is required.");
-}
-
-const senderRole = req.user?.providerId ? "provider" : "customer";
-
-
-const message = await Message.create({
-  conversationId: convo._id,
-  providerId: new mongoose.Types.ObjectId(providerId),
-  customerId: new mongoose.Types.ObjectId(customerId),
-  senderRole,
-  senderId: req.user?.providerId
-    ? new mongoose.Types.ObjectId(req.user.providerId)
-    : new mongoose.Types.ObjectId(req.user._id),
-  text: text.trim(),
+// ✅ Conversation ready — message will be sent separately
+return res.json({
+  success: true,
+  conversation: convo,
 });
-
-
-// Update conversation metadata
-convo.lastMessageAt = message.createdAt;
-convo.lastMessageText = message.text;
-convo.lastMessageSenderRole = senderRole;
-
-if (senderRole === "customer") {
-  convo.customerLastReadAt = message.createdAt;
-} else {
-  convo.providerLastReadAt = message.createdAt;
-}
-
-await convo.save();
-
-return res.json({ success: true, conversation: convo });
-
 
 
     }
@@ -235,77 +201,36 @@ return res.json({ success: true, conversation: convo });
     
  
 /* ===============================
-   CRM-BASED CONVERSATION
+   CRM-BASED CONVERSATION (NO MESSAGE HERE)
    =============================== */
 
-  const nowCRM = new Date();
-
-
-  // 🔥 Explicit NULL serviceId for CRM
- const crmQuery = {
+const crmQuery = {
   providerId: new mongoose.Types.ObjectId(providerId),
   customerId: new mongoose.Types.ObjectId(customerId),
   serviceId: null,
 };
 
-  const convo = await Conversation.findOneAndUpdate(
-    crmQuery,
-    {
-      $setOnInsert: {
-        ...crmQuery,
-        businessName: null,
-        lastMessageAt: nowCRM,
-        lastMessageText: "Conversation started",
-        lastMessageSenderRole: req.user?.providerId ? "provider" : "customer",
-        providerLastReadAt: req.user?.providerId ? nowCRM : null,
-        customerLastReadAt: req.user?.providerId ? null : nowCRM,
-      },
-    },
-    { new: true, upsert: true }
-  );
+// find or create convo
+let convo = await Conversation.findOne(crmQuery);
 
-  // Lead tracking ONLY if newly created
-  if (convo.createdAt.getTime() === convo.updatedAt.getTime()) {
-    if (!req.user?.providerId) {
-      await recordLeadIfNewConversation({ providerId });
-    }
-  }
+if (!convo) {
+  convo = await Conversation.create({
+    ...crmQuery,
+    businessName: null,
 
-  const textMsg = req.body?.text;
-
-  if (!textMsg || !textMsg.trim()) {
-    return sendError(res, 400, "Message text is required.");
-  }
-
-  const senderRole = req.user?.providerId ? "provider" : "customer";
-
-  const message = await Message.create({
-    conversationId: convo._id,
-    providerId: new mongoose.Types.ObjectId(providerId),
-    customerId: new mongoose.Types.ObjectId(customerId),
-    senderRole,
-    senderId: req.user?.providerId
-      ? new mongoose.Types.ObjectId(req.user.providerId)
-      : new mongoose.Types.ObjectId(req.user._id),
-    text: textMsg.trim(),
+    // real message will set these
+    providerLastReadAt: null,
+    customerLastReadAt: null,
   });
 
-  // update convo metadata
-  convo.lastMessageAt = message.createdAt;
-  convo.lastMessageText = message.text;
-  convo.lastMessageSenderRole = senderRole;
-
-  if (senderRole === "customer") {
-    convo.customerLastReadAt = message.createdAt;
-  } else {
-    convo.providerLastReadAt = message.createdAt;
+  // Lead tracking only when CUSTOMER starts (usually CRM is provider-started,
+  // but keeping this logic safe)
+  if (!req.user?.providerId) {
+    await recordLeadIfNewConversation({ providerId });
   }
+}
 
-  await convo.save();
-
-  return res.json({ success: true, conversation: convo });
-
-
+return res.json({ success: true, conversation: convo });
 
 
   } catch (err) {
