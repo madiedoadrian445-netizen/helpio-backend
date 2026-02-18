@@ -213,9 +213,18 @@ if (!convo) {
 const { text } = req.body;
 
 if (text && text.trim()) {
+  const isProvider = !!req.user?.providerId;
+
   const message = await Message.create({
     conversationId: convo._id,
-    senderRole: req.user?.providerId ? "provider" : "customer",
+
+    // ⭐ REQUIRED FIELDS (THIS FIXES THE BUG)
+    senderId: isProvider ? providerId : customerId,
+    providerId,
+    customerId,
+
+    // message data
+    senderRole: isProvider ? "provider" : "customer",
     text: text.trim(),
   });
 
