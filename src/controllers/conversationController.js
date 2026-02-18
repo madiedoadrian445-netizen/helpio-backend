@@ -145,6 +145,15 @@ if (!mongoose.Types.ObjectId.isValid(serviceId)) {
     providerId = listing.provider;
   }
 
+  // 🛡 Prevent Mongo CastError → 500 crash
+if (
+  !mongoose.Types.ObjectId.isValid(providerId) ||
+  !mongoose.Types.ObjectId.isValid(customerId)
+) {
+  return sendError(res, 400, "Invalid conversation participants.");
+}
+
+
   console.log("🧪 providerId resolved:", providerId);
   console.log("🧪 customerId:", customerId);
 
@@ -197,11 +206,31 @@ if (!convo) {
    CREATE FIRST MESSAGE IF TEXT PROVIDED
    ========================================================= */
 // ✅ Conversation ready — message will be sent separately
+/* =========================================================
+   CREATE FIRST MESSAGE IF TEXT PROVIDED
+   ========================================================= */
+
+const { text } = req.body;
+
+if (text && text.trim()) {
+  const message = await Message.create({
+    conversationId: convo._id,
+    senderRole: req.user?.providerId ? "provider" : "customer",
+    text: text.trim(),
+  });
+
+  // update conversation preview
+  convo.lastMessageText = message.text;
+  convo.lastMessageAt = new Date();
+  convo.lastMessageSenderRole = message.senderRole;
+
+  await convo.save();
+}
+
 return res.json({
   success: true,
   conversation: convo,
 });
-
 
     }
 
