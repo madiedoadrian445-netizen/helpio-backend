@@ -2,6 +2,7 @@ import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import Listing from "../models/Listing.js";
 import ProviderDailyStat from "../models/ProviderDailyStat.js";
+import mongoose from "mongoose";
 
 
 const sendError = (res, status, message) =>
@@ -41,7 +42,8 @@ const recordLeadIfNewConversation = async ({ providerId }) => {
   const cooldownUntil = new Date(Date.now() + 45 * 60 * 1000); // 45 minutes
 
   await ProviderDailyStat.updateOne(
-    { provider_id: providerId, day },
+  { providerId, day },
+
     {
       $inc: { leads: 1 },
       $set: { cooldown_until: cooldownUntil },
@@ -67,12 +69,14 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
     console.log("req.user:", req.user);
     console.log("========================================");
 
-    const providerId =
-      req.params.providerId || req.user?.providerId;
+   let providerId = req.params.providerId || req.user?.providerId;
+
 
  // ⭐ Determine customer correctly
 
 let customerId = null;
+
+
 
 // If CUSTOMER is logged in → they are the customer
 if (!req.user?.providerId) {
@@ -97,59 +101,83 @@ if (!customerId) {
 
     const { serviceId } = req.body;
 
-    if (!providerId || !customerId) {
-      return sendError(res, 401, "Unauthorized.");
-    }
+    // 🚨 If no serviceId AND no providerId → cannot create CRM convo
+// After SERVICE block ends
 
-    /* ===============================
-       SERVICE-BASED CONVERSATION
-       =============================== */
-    if (serviceId) {
+// 🚨 For CRM conversations we MUST have providerId
+if (!serviceId && !providerId) {
+  return sendError(res, 400, "Provider ID is required.");
+}
+
+
+
+  /* ===============================
+   SERVICE-BASED CONVERSATION
+   =============================== */
+if (serviceId) {
+
   const listing = await Listing.findById(serviceId)
-  .select("_id isActive businessName title photos")
-  .lean();
+    .select("_id isActive businessName title images provider")
+    .lean();
+
+  console.log("🧪 LISTING FOUND:", listing);
+
+  // 1️⃣ Listing must exist
+  if (!listing) {
+    return sendError(res, 404, "Listing not found.");
+  }
+
+  // 2️⃣ Listing must be active
+  if (listing.isActive === false) {
+    return sendError(res, 404, "Messaging is only available for live listings.");
+  }
+
+  // 3️⃣ Resolve providerId from listing if customer started convo
+  if (!providerId && listing.provider) {
+    providerId = listing.provider;
+  }
+
+  console.log("🧪 providerId resolved:", providerId);
+  console.log("🧪 customerId:", customerId);
+
+  // 4️⃣ NOW check auth
+  if (!providerId || !customerId) {
+    return sendError(res, 401, "Unauthorized.");
+  }
+
+  // 5️⃣ Find existing convo
+  let convo = await Conversation.findOne({
+    providerId: new mongoose.Types.ObjectId(providerId),
+    customerId: new mongoose.Types.ObjectId(customerId),
+    serviceId: new mongoose.Types.ObjectId(serviceId),
+  });
+
+  const now = new Date();
 
 
-      if (!listing || listing.isActive === false) {
-        return sendError(
-          res,
-          404,
-          "Messaging is only available for live listings."
-        );
-      }
 
-      let convo = await Conversation.findOne({
-  providerId,
-  customerId,
-  serviceId,
-});
 
-const now = new Date();
 
 let isNewConversation = false;
 
 if (!convo) {
   convo = await Conversation.create({
-    providerId,
-    customerId,
-    serviceId,
+    providerId: new mongoose.Types.ObjectId(providerId),
+    customerId: new mongoose.Types.ObjectId(customerId),
+    serviceId: new mongoose.Types.ObjectId(serviceId),
     businessName: listing?.businessName || null,
 
-    lastMessageAt: now,
-    lastMessageText: "Conversation started",
-    lastMessageSenderRole: "customer",
-
+    // real message will set these
     providerLastReadAt: null,
-    customerLastReadAt: now,
+    customerLastReadAt: null,
   });
 
-  isNewConversation = true;
-
-  // ⭐ Lead tracking only on NEW convo
+  // Lead tracking only when CUSTOMER starts a NEW convo
   if (!req.user?.providerId) {
     await recordLeadIfNewConversation({ providerId });
   }
 }
+
 
 /* =========================================================
    ALWAYS CREATE MESSAGE IF TEXT EXISTS
@@ -160,22 +188,29 @@ if (!convo) {
 /* =========================================================
    CREATE FIRST MESSAGE IF TEXT PROVIDED
    ========================================================= */
-const { text } = req.body;
+const text = req.body?.text;
 
-/* =========================================================
-   ENFORCE FIRST MESSAGE FOR SERVICE CONVERSATIONS
-   ========================================================= */
+
+
+
 if (!text || !text.trim()) {
   return sendError(res, 400, "Message text is required.");
 }
 
 const senderRole = req.user?.providerId ? "provider" : "customer";
 
+
 const message = await Message.create({
   conversationId: convo._id,
+  providerId: new mongoose.Types.ObjectId(providerId),
+  customerId: new mongoose.Types.ObjectId(customerId),
   senderRole,
+  senderId: req.user?.providerId
+    ? new mongoose.Types.ObjectId(req.user.providerId)
+    : new mongoose.Types.ObjectId(req.user._id),
   text: text.trim(),
 });
+
 
 // Update conversation metadata
 convo.lastMessageAt = message.createdAt;
@@ -196,47 +231,89 @@ return res.json({ success: true, conversation: convo });
 
     }
 
+
+    
  
 /* ===============================
    CRM-BASED CONVERSATION
    =============================== */
 
-const now = new Date();
+  const nowCRM = new Date();
 
-// 🔥 Explicit NULL serviceId for CRM
-const crmQuery = {
-  providerId,
-  customerId,
+
+  // 🔥 Explicit NULL serviceId for CRM
+ const crmQuery = {
+  providerId: new mongoose.Types.ObjectId(providerId),
+  customerId: new mongoose.Types.ObjectId(customerId),
   serviceId: null,
 };
 
-const convo = await Conversation.findOneAndUpdate(
-  crmQuery,
-  {
-    $setOnInsert: {
-      ...crmQuery,
-      businessName: null,
-      lastMessageAt: now,
-      lastMessageText: "Conversation started",
-      lastMessageSenderRole: req.user?.providerId ? "provider" : "customer",
-      providerLastReadAt: req.user?.providerId ? now : null,
-      customerLastReadAt: req.user?.providerId ? null : now,
+  const convo = await Conversation.findOneAndUpdate(
+    crmQuery,
+    {
+      $setOnInsert: {
+        ...crmQuery,
+        businessName: null,
+        lastMessageAt: nowCRM,
+        lastMessageText: "Conversation started",
+        lastMessageSenderRole: req.user?.providerId ? "provider" : "customer",
+        providerLastReadAt: req.user?.providerId ? nowCRM : null,
+        customerLastReadAt: req.user?.providerId ? null : nowCRM,
+      },
     },
-  },
-  { new: true, upsert: true }
-);
+    { new: true, upsert: true }
+  );
 
-// Lead tracking ONLY if newly created
-if (convo.createdAt.getTime() === convo.updatedAt.getTime()) {
-  if (!req.user?.providerId) {
-    await recordLeadIfNewConversation({ providerId });
+  // Lead tracking ONLY if newly created
+  if (convo.createdAt.getTime() === convo.updatedAt.getTime()) {
+    if (!req.user?.providerId) {
+      await recordLeadIfNewConversation({ providerId });
+    }
   }
-}
 
-return res.json({ success: true, conversation: convo });
+  const textMsg = req.body?.text;
+
+  if (!textMsg || !textMsg.trim()) {
+    return sendError(res, 400, "Message text is required.");
+  }
+
+  const senderRole = req.user?.providerId ? "provider" : "customer";
+
+  const message = await Message.create({
+    conversationId: convo._id,
+    providerId: new mongoose.Types.ObjectId(providerId),
+    customerId: new mongoose.Types.ObjectId(customerId),
+    senderRole,
+    senderId: req.user?.providerId
+      ? new mongoose.Types.ObjectId(req.user.providerId)
+      : new mongoose.Types.ObjectId(req.user._id),
+    text: textMsg.trim(),
+  });
+
+  // update convo metadata
+  convo.lastMessageAt = message.createdAt;
+  convo.lastMessageText = message.text;
+  convo.lastMessageSenderRole = senderRole;
+
+  if (senderRole === "customer") {
+    convo.customerLastReadAt = message.createdAt;
+  } else {
+    convo.providerLastReadAt = message.createdAt;
+  }
+
+  await convo.save();
+
+  return res.json({ success: true, conversation: convo });
+
+
+
 
   } catch (err) {
-    console.log("❌ getOrCreateConversationWithCustomer:", err);
+   console.log("❌ getOrCreateConversationWithCustomer:", err?.message);
+console.log("❌ err.name:", err?.name);
+console.log("❌ err.errors:", err?.errors);
+console.log("❌ err.stack:", err?.stack);
+
     return sendError(res, 500, "Server error.");
   }
 };
