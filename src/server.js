@@ -36,6 +36,18 @@ import http from "http";
 import { initSocket } from "./socket.js";
 
 
+process.on("unhandledRejection", (reason) => {
+  console.log("💥 UNHANDLED REJECTION:");
+  console.log(reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.log("💥 UNCAUGHT EXCEPTION:");
+  console.log(err?.message);
+  console.log(err?.stack);
+});
+
+
 
 console.log("🔑 JWT_SECRET:", process.env.JWT_SECRET);
 
@@ -135,6 +147,8 @@ app.use((req, res, next) => {
   next();
 });
 
+
+
 /* ---------------------------------------------------------
    ⭐ B3 — Structured Request Logging
 ---------------------------------------------------------- */
@@ -172,6 +186,33 @@ app.use(xss());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
+
+
+app.use((req, res, next) => {
+  const start = Date.now();
+
+  // --- RAW REQUEST SNAPSHOT ---
+  console.log("════════════════════════════════════════════");
+  console.log("➡️  INCOMING", req.method, req.originalUrl);
+  console.log("🆔 requestId:", req.requestId);
+  console.log("🌐 origin:", req.headers.origin || "(none)");
+  console.log("📦 content-type:", req.headers["content-type"]);
+  console.log("🔑 auth header:", req.headers.authorization ? "YES" : "NO");
+  console.log("🧩 params:", req.params);
+  console.log("❓ query:", req.query);
+  console.log("🧾 body:", req.body);
+  console.log("════════════════════════════════════════════");
+
+  res.on("finish", () => {
+    console.log("✅ RESPONSE", req.method, req.originalUrl);
+    console.log("🆔 requestId:", req.requestId);
+    console.log("📡 status:", res.statusCode);
+    console.log("⏱️ ms:", Date.now() - start);
+    console.log("════════════════════════════════════════════");
+  });
+
+  next();
+});
 
 
 
@@ -365,10 +406,6 @@ app.use("/api/messages", messageRoutes);
 app.use("/api/services", serviceRoutes);
 
 
-app.use((req, res, next) => {
-  console.log("➡️", req.method, req.originalUrl);
-  next();
-});
 
 
 /* ⭐ NEW — FULL ADMIN CRON SUITE */
