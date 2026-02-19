@@ -4,6 +4,9 @@ import Listing from "../models/Listing.js";
 import ProviderDailyStat from "../models/ProviderDailyStat.js";
 import mongoose from "mongoose";
 
+const toObjectId = (id) =>
+  id instanceof mongoose.Types.ObjectId ? id : new mongoose.Types.ObjectId(id);
+
 
 const sendError = (res, status, message) =>
   res.status(status).json({ success: false, message });
@@ -104,6 +107,10 @@ if (!customerId) {
 if (!serviceId && !providerId) {
   return sendError(res, 400, "Provider ID is required.");
 }
+// normalize customerId to string (CRITICAL)
+if (customerId && typeof customerId !== "string") {
+  customerId = String(customerId);
+}
 
 
 
@@ -163,10 +170,11 @@ if (!providerId || !mongoose.Types.ObjectId.isValid(providerId)) {
 
   // 5️⃣ Find existing convo
   let convo = await Conversation.findOne({
-    providerId: new mongoose.Types.ObjectId(providerId),
-    customerId: new mongoose.Types.ObjectId(customerId),
-    serviceId: new mongoose.Types.ObjectId(serviceId),
-  });
+  providerId: toObjectId(providerId),
+  customerId: toObjectId(customerId),
+  serviceId: toObjectId(serviceId),
+});
+
 
   const now = new Date();
 
@@ -178,10 +186,10 @@ let isNewConversation = false;
 
 if (!convo) {
   convo = await Conversation.create({
-    providerId: new mongoose.Types.ObjectId(providerId),
-    customerId: new mongoose.Types.ObjectId(customerId),
-    serviceId: new mongoose.Types.ObjectId(serviceId),
-    businessName: listing?.businessName || null,
+  providerId: toObjectId(providerId),
+  customerId: toObjectId(customerId),
+  serviceId: toObjectId(serviceId),
+
 
     // real message will set these
     providerLastReadAt: null,
@@ -217,16 +225,15 @@ if (text && text.trim()) {
  const message = await Message.create({
   conversationId: convo._id,
 
-  senderId: new mongoose.Types.ObjectId(
-    isProvider ? providerId : customerId
-  ),
+  senderId: toObjectId(isProvider ? providerId : customerId),
 
-  providerId: new mongoose.Types.ObjectId(providerId),
-  customerId: new mongoose.Types.ObjectId(customerId),
+  providerId: toObjectId(providerId),
+  customerId: toObjectId(customerId),
 
   senderRole: isProvider ? "provider" : "customer",
   text: text.trim(),
 });
+
 
   // update conversation preview
   convo.lastMessageText = message.text;
@@ -251,10 +258,11 @@ return res.json({
    =============================== */
 
 const crmQuery = {
-  providerId: new mongoose.Types.ObjectId(providerId),
-  customerId: new mongoose.Types.ObjectId(customerId),
+  providerId: toObjectId(providerId),
+  customerId: toObjectId(customerId),
   serviceId: null,
 };
+
 
 // find or create convo
 let convo = await Conversation.findOne(crmQuery);
