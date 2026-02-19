@@ -215,18 +215,19 @@ const { text } = req.body;
 if (text && text.trim()) {
   const isProvider = !!req.user?.providerId;
 
-  const message = await Message.create({
-    conversationId: convo._id,
+ const message = await Message.create({
+  conversationId: convo._id,
 
-    // ⭐ REQUIRED FIELDS (THIS FIXES THE BUG)
-    senderId: isProvider ? providerId : customerId,
-    providerId,
-    customerId,
+  senderId: new mongoose.Types.ObjectId(
+    isProvider ? providerId : customerId
+  ),
 
-    // message data
-    senderRole: isProvider ? "provider" : "customer",
-    text: text.trim(),
-  });
+  providerId: new mongoose.Types.ObjectId(providerId),
+  customerId: new mongoose.Types.ObjectId(customerId),
+
+  senderRole: isProvider ? "provider" : "customer",
+  text: text.trim(),
+});
 
   // update conversation preview
   convo.lastMessageText = message.text;
@@ -279,14 +280,22 @@ if (!convo) {
 return res.json({ success: true, conversation: convo });
 
 
-  } catch (err) {
-   console.log("❌ getOrCreateConversationWithCustomer:", err?.message);
-console.log("❌ err.name:", err?.name);
-console.log("❌ err.errors:", err?.errors);
-console.log("❌ err.stack:", err?.stack);
+ } catch (err) {
+  console.log("❌ getOrCreateConversationWithCustomer ERROR");
+  console.log("message:", err?.message);
+  console.log("name:", err?.name);
+  console.log("errors:", err?.errors);
+  console.log("stack:", err?.stack);
 
-    return sendError(res, 500, "Server error.");
+  // 🔥 Mongoose validation / cast errors → return real reason
+  if (err?.name === "ValidationError" || err?.name === "CastError") {
+    return sendError(res, 400, err.message);
   }
+
+  // 🔥 Default
+  return sendError(res, 500, "Server error.");
+}
+
 };
 
 
