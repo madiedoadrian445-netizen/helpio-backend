@@ -69,34 +69,30 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
     console.log("req.user:", req.user);
     console.log("========================================");
 
-   let providerId = req.params.providerId || req.user?.providerId;
+   let providerId =
+  req.params.providerId ||
+  req.user?.providerId ||
+  null;
+
+// 🔥 Always normalize to string before validation
+if (providerId && typeof providerId !== "string") {
+  providerId = String(providerId);
+}
 
 
  // ⭐ Determine customer correctly
 
-let customerId = null;
-
-
-
-// If CUSTOMER is logged in → they are the customer
-if (!req.user?.providerId) {
-  customerId = req.user?._id;
-}
-
-// If PROVIDER is logged in → must pass a customerId
-else {
-  customerId = req.params.customerId || req.body.customerId || null;
-}
+// CUSTOMER resolution (robust)
+let customerId =
+  req.user?._id ||
+  req.params.customerId ||
+  req.body.customerId ||
+  null;
 
 if (!customerId) {
-  return sendError(
-    res,
-    400,
-    "Customer ID is required when provider starts a conversation."
-  );
+  console.log("❌ customerId missing at conversation start");
+  return sendError(res, 401, "Unauthorized.");
 }
-
-
 
 
     const { serviceId } = req.body;
@@ -146,12 +142,15 @@ if (!mongoose.Types.ObjectId.isValid(serviceId)) {
   }
 
   // 🛡 Prevent Mongo CastError → 500 crash
-if (
-  !mongoose.Types.ObjectId.isValid(providerId) ||
-  !mongoose.Types.ObjectId.isValid(customerId)
-) {
-  return sendError(res, 400, "Invalid conversation participants.");
+if (!mongoose.Types.ObjectId.isValid(customerId)) {
+  return sendError(res, 400, "Invalid customer.");
 }
+
+if (!providerId || !mongoose.Types.ObjectId.isValid(providerId)) {
+  console.log("❌ providerId invalid:", providerId);
+  return sendError(res, 400, "Invalid provider.");
+}
+
 
 
   console.log("🧪 providerId resolved:", providerId);
