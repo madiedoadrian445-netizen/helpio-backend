@@ -103,118 +103,101 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
     }
 
     // We'll set this exactly once and reuse it for message sending + response
-    let convo = null;
+   let convo = null;
 
-    /* ===============================
-       SERVICE-BASED CONVERSATION
-       =============================== */
-    if (serviceId) {
-      // validate serviceId
-      if (!mongoose.Types.ObjectId.isValid(serviceId)) {
-        return sendError(res, 400, "Invalid service ID.");
-      }
+/* ===============================
+   SERVICE-BASED CONVERSATION
+   =============================== */
+if (serviceId) {
 
-      const listing = await Listing.findById(serviceId)
-        .select("_id isActive businessName title images provider")
-        .lean();
+  if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+    return sendError(res, 400, "Invalid service ID.");
+  }
 
-      console.log("🧪 LISTING FOUND:", listing);
+  const listing = await Listing.findById(serviceId)
+    .select("_id isActive businessName title images provider")
+    .lean();
 
-      // listing must exist
-      if (!listing) {
-        return sendError(res, 404, "Listing not found.");
-      }
+  if (!listing) {
+    return sendError(res, 404, "Listing not found.");
+  }
 
-if (!listing.provider) {
-  return sendError(res, 400, "Listing has no provider attached.");
+  if (!listing.provider) {
+    return sendError(res, 400, "Listing has no provider attached.");
+  }
+
+  if (listing.isActive === false) {
+    return sendError(res, 404, "Messaging is only available for live listings.");
+  }
+
+  if (!providerId) {
+    providerId = String(listing.provider);
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(customerId)) {
+    return sendError(res, 400, "Invalid customer.");
+  }
+
+  if (!providerId || !mongoose.Types.ObjectId.isValid(providerId)) {
+    return sendError(res, 400, "Invalid provider.");
+  }
+
+  convo = await Conversation.findOneAndUpdate(
+    {
+      providerId: toObjectId(providerId),
+      customerId: toObjectId(customerId),
+      serviceId: toObjectId(serviceId),
+    },
+    {
+      $setOnInsert: {
+        providerLastReadAt: null,
+        customerLastReadAt: null,
+        createdAt: new Date(),
+      },
+    },
+    {
+      new: true,
+      upsert: true,
+    }
+  );
+
+} else {
+
+  /* ===============================
+     CRM-BASED CONVERSATION
+     =============================== */
+
+  if (!mongoose.Types.ObjectId.isValid(customerId)) {
+    return sendError(res, 400, "Invalid customer.");
+  }
+
+  if (!providerId || !mongoose.Types.ObjectId.isValid(providerId)) {
+    return sendError(res, 400, "Invalid provider.");
+  }
+
+  convo = await Conversation.findOneAndUpdate(
+    {
+      providerId: toObjectId(providerId),
+      customerId: toObjectId(customerId),
+      serviceId: null,
+    },
+    {
+      $setOnInsert: {
+        providerLastReadAt: null,
+        customerLastReadAt: null,
+        createdAt: new Date(),
+      },
+    },
+    {
+      new: true,
+      upsert: true,
+    }
+  );
 }
-
-      // listing must be active
-      if (listing.isActive === false) {
-        return sendError(res, 404, "Messaging is only available for live listings.");
-      }
-
-      // resolve providerId from listing (customer started convo)
-      if (!providerId && listing.provider) {
-        providerId = listing.provider;
-        if (providerId && typeof providerId !== "string") providerId = String(providerId);
-      }
-
-      // validate ids to prevent CastError 500
-      if (!mongoose.Types.ObjectId.isValid(customerId)) {
-        return sendError(res, 400, "Invalid customer.");
-      }
-
-      if (!providerId || !mongoose.Types.ObjectId.isValid(providerId)) {
-        console.log("❌ providerId invalid:", providerId);
-        return sendError(res, 400, "Invalid provider.");
-      }
-
-      // ✅ ATOMIC UPSERT (fixes second-tap race condition)
-      const upsertRes = await Conversation.findOneAndUpdate(
-        {
-          providerId: toObjectId(providerId),
-          customerId: toObjectId(customerId),
-          serviceId: toObjectId(serviceId),
-        },
-        {
-          $setOnInsert: {
-            providerLastReadAt: null,
-            customerLastReadAt: null,
-            createdAt: new Date(),
-          },
-        },
-        {
-          new: true,
-          upsert: true,
-          rawResult: true,
-        }
-      );
-
-      convo = upsertRes.value;
-      const wasInserted = !!upsertRes.lastErrorObject?.upserted;
-
-      // 🎯 Record lead ONLY if this request created the conversation AND viewer is customer
-      if (wasInserted && !req.user?.providerId) {
-        await recordLeadIfNewConversation({ providerId });
-      }
-    } else {
-      /* ===============================
-         CRM-BASED CONVERSATION (serviceId MUST be null)
-         =============================== */
-
-      // validate ids (avoid CastError)
-      if (!mongoose.Types.ObjectId.isValid(customerId)) {
-        return sendError(res, 400, "Invalid customer.");
-      }
-      if (!providerId || !mongoose.Types.ObjectId.isValid(providerId)) {
-        return sendError(res, 400, "Invalid provider.");
-      }
-
-      // ✅ ATOMIC UPSERT CRM (serviceId: null)
-      convo = await Conversation.findOneAndUpdate(
-        {
-          providerId: toObjectId(providerId),
-          customerId: toObjectId(customerId),
-          serviceId: null,
-        },
-        {
-          $setOnInsert: {
-            providerLastReadAt: null,
-            customerLastReadAt: null,
-            createdAt: new Date(),
-          },
-        },
-        {
-          new: true,
-          upsert: true,
-        }
-      );
-
       // Lead tracking only if CUSTOMER started and convo was new
       // (Mongoose doesn't return rawResult here; if you want exact insert detection,
       // switch CRM to rawResult too. Keeping your original intent safe.)
-    }
+  
 
     /* ===============================
        CREATE MESSAGE IF TEXT EXISTS
@@ -223,6 +206,15 @@ if (!listing.provider) {
 
     if (text && text.trim()) {
       const isProvider = !!req.user?.providerId;
+
+console.log("====== MESSAGE DEBUG ======");
+  console.log("convo._id:", convo?._id);
+  console.log("providerId:", providerId);
+  console.log("customerId:", customerId);
+  console.log("senderRole:", isProvider ? "provider" : "customer");
+  console.log("===========================");
+
+
 
       const message = await Message.create({
         conversationId: convo._id,
