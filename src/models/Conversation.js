@@ -21,7 +21,7 @@ const ConversationSchema = new Schema(
     // 🔥 REQUIRED — this was missing
     serviceId: {
   type: mongoose.Schema.Types.ObjectId,
-  ref: "Service",
+ ref: "Listing",
   required: false, // 🔥 FIX
 },
 
