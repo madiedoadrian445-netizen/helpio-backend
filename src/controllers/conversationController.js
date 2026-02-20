@@ -5,8 +5,16 @@ import Listing from "../models/Listing.js";
 import ProviderDailyStat from "../models/ProviderDailyStat.js";
 import mongoose from "mongoose";
 
-const toObjectId = (id) =>
-  id instanceof mongoose.Types.ObjectId ? id : new mongoose.Types.ObjectId(id);
+const toObjectId = (id) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    const e = new Error(`Invalid ObjectId: ${id}`);
+    e.name = "CastError";
+    throw e;
+  }
+  return id instanceof mongoose.Types.ObjectId
+    ? id
+    : new mongoose.Types.ObjectId(id);
+};
 
 const sendError = (res, status, message) =>
   res.status(status).json({ success: false, message });
@@ -239,6 +247,11 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
     console.log("name:", err?.name);
     console.log("errors:", err?.errors);
     console.log("stack:", err?.stack);
+
+// Duplicate conversation (unique index hit)
+if (err?.code === 11000) {
+  return sendError(res, 409, "Conversation already exists.");
+}
 
     // Mongoose validation / cast errors → return real reason
     if (err?.name === "ValidationError" || err?.name === "CastError") {
