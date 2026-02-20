@@ -125,6 +125,10 @@ export const getOrCreateConversationWithCustomer = async (req, res) => {
         return sendError(res, 404, "Listing not found.");
       }
 
+if (!listing.provider) {
+  return sendError(res, 400, "Listing has no provider attached.");
+}
+
       // listing must be active
       if (listing.isActive === false) {
         return sendError(res, 404, "Messaging is only available for live listings.");
