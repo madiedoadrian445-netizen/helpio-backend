@@ -147,6 +147,7 @@ if (!userId) {
 
     const lat = Number(req.query.lat);
     const lng = Number(req.query.lng);
+    const searchQuery = req.query.search?.trim() || null;
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       return res.status(400).json({ success: false, message: "lat/lng required" });
@@ -170,6 +171,53 @@ if (!userId) {
     const seed = session.seed;
     const day = yyyyMmDdNY();
 
+
+let matchedIds = null;
+
+if (searchQuery) {
+  const searchResults = await Listing.aggregate([
+    {
+      $search: {
+        index: "default",
+        compound: {
+          should: [
+            {
+              text: {
+                query: searchQuery,
+                path: "title",
+                fuzzy: { maxEdits: 2 }
+              }
+            },
+            {
+              text: {
+                query: searchQuery,
+                path: "businessName",
+                fuzzy: { maxEdits: 2 }
+              }
+            },
+            {
+              text: {
+                query: searchQuery,
+                path: "category",
+                score: { boost: { value: 3 } }
+              }
+            }
+          ]
+        }
+      }
+    },
+    { $project: { _id: 1 } },
+    { $limit: 500 }
+  ]);
+
+  matchedIds = searchResults.map(r => r._id);
+
+  // ✅ fallback only if search ran
+  if (matchedIds.length === 0) {
+    matchedIds = null;
+  }
+}
+
     // 2) geo + eligibility query (Listings)
     // assumes Listing has:
     // - provider_id
@@ -178,13 +226,14 @@ if (!userId) {
     // - last_active_at
     // - category (or categories)
     // - provider_service_radius_miles (optional) or serviceRadiusMiles
-   const match = {
-  isActive: true,
-};
-
+const match = { isActive: true };
 
 if (category) {
   match.category = category;
+}
+
+if (matchedIds && matchedIds.length > 0) {
+  match._id = { $in: matchedIds };
 }
 
 const pipeline = [
