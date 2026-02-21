@@ -213,7 +213,7 @@ const pipeline = [
       category: 1,
       photos: "$images",                        // ✅ map images -> photos
       price: 1,
-      location: "$location.coordinates",
+     location: "$location",   // ✅ keep full structured location
 
       distanceMiles: 1,
     },
