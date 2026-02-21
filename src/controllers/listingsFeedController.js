@@ -191,7 +191,7 @@ const pipeline = [
   {
     $geoNear: {
   near: { type: "Point", coordinates: [lng, lat] },
-  key: "location.coordinates.coordinates",
+  key: "location.coordinates",              // ✅ CORRECT
   distanceField: "distanceMeters",
   spherical: true,
   maxDistance: maxRadiusMeters,
