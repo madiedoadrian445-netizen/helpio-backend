@@ -372,9 +372,12 @@ export const createListing = async (req, res) => {
 
     const data = normalizeListingInput(rawData);
 
-    if (!data.title) {
-      return sendError(res, 400, "Title is required");
-    }
+console.log("📍 NORMALIZED LOCATION BEFORE SAVE:");
+console.log(JSON.stringify(data.location, null, 2));
+
+if (!data.title) {
+  return sendError(res, 400, "Title is required");
+}
 
    if (
   !data.location ||
