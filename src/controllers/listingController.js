@@ -358,6 +358,11 @@ export const getListingsByCategory = async (req, res) => {
 -------------------------------------------------------- */
 export const createListing = async (req, res) => {
   try {
+
+console.log("🔥 CREATE LISTING HIT");
+console.log("REQ.USER:", req.user);
+console.log("REQ.BODY:", JSON.stringify(req.body, null, 2));
+
     const provider = await getProviderForUser(req.user?._id);
 
     if (!provider) {
