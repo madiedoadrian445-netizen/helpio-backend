@@ -372,12 +372,9 @@ export const createListing = async (req, res) => {
 
     const data = normalizeListingInput(rawData);
 
-console.log("📍 NORMALIZED LOCATION BEFORE SAVE:");
-console.log(JSON.stringify(data.location, null, 2));
-
-if (!data.title) {
-  return sendError(res, 400, "Title is required");
-}
+    if (!data.title) {
+      return sendError(res, 400, "Title is required");
+    }
 
    if (
   !data.location ||
@@ -539,3 +536,4 @@ export const deleteListing = async (req, res) => {
     return sendError(res, 500, "Server error deleting listing");
   }
 };
+
