@@ -5,7 +5,17 @@ import Category from "../models/Category.js";
 dotenv.config();
 
 const categories = [
-  { name: "Mobile Detailing", slug: "mobile-detailing" },
+  {
+    name: "Mobile Detailing",
+    slug: "mobile-detailing",
+    keywords: [
+      "car wash", "wash my car", "clean my car", "interior cleaning", "exterior cleaning", "car detailing", "auto detailing", "hand wash",
+      "clay bar treatment", "waxing", "polishing", "paint correction", "ceramic coating",
+      "interior vacuum", "seat shampoo", "leather conditioning", "dashboard cleaning",
+      "tire shine", "rim cleaning", "engine bay cleaning", "stain removal", "pet hair removal", "odor removal", "headlight restoration",
+      "mobile detailing", "auto spa"
+    ],
+  },
   { name: "Barbershops", slug: "barbershops" },
   { name: "Mechanic Shops", slug: "mechanic-shops" },
   { name: "Home Renovation", slug: "home-renovation" },

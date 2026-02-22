@@ -14,16 +14,25 @@ const categorySchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-    icon: {
-      type: String, // optional icon reference
+
+    // ✅ NEW — keyword mapping for intelligent search
+    keywords: {
+      type: [String],
+      default: [],
     },
+
+    icon: {
+      type: String,
+    },
+
     isActive: {
       type: Boolean,
       default: true,
     },
+
     order: {
       type: Number,
-      default: 0, // allows custom ordering
+      default: 0,
     },
   },
   { timestamps: true }
