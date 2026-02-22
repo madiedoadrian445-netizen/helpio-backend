@@ -315,17 +315,18 @@ console.log("🔍 SEARCH matchedIds:", matchedIds?.length || 0);
 const listings = rawListings.filter((l) => l.provider_id != null);
 
 
-    if (!listings.length) {
-      return res.json({
-        success: true,
-        session_id: session.session_id,
-        expires_at: session.expires_at,
-        page,
-        pageSize,
-        total: 0,
-        items: [],
-      });
-    }
+   if (!listings.length) {
+  return res.json({
+    success: true,
+    session_id: session.session_id,
+    expires_at: session.expires_at,
+    page,
+    pageSize,
+    total: 0,
+    items: [],
+    hasMore: false, // ✅ CRITICAL for doom scroll
+  });
+}
 
     // 3) load today’s stats for providers in this result set
     const providerIds = [
@@ -402,15 +403,18 @@ if (impressionItems.length) {
 }
 
 
-    return res.json({
-      success: true,
-      session_id: session.session_id,
-      expires_at: session.expires_at,
-      page,
-      pageSize,
-      total,
-      items: pageItems,
-    });
+   const hasMore = end < total;
+
+return res.json({
+  success: true,
+  session_id: session.session_id,
+  expires_at: session.expires_at,
+  page,
+  pageSize,
+  total,
+  items: pageItems,
+  hasMore, // ✅ enables infinite scroll
+});
   } catch (err) {
   console.error("🔥 FEED CRASH:", err);
   return res.status(500).json({
