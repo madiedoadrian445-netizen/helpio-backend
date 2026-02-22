@@ -184,8 +184,8 @@ console.log("🔎 FEED DEBUG:", {
     const seed = session.seed;
     const day = yyyyMmDdNY();
 
-let matchedIds = null;
-let searchScoreMap = null;
+let matchedIds = [];
+let searchScoreMap = new Map();
 
 if (searchQuery) {
   const searchResults = await Listing.aggregate([
@@ -249,10 +249,7 @@ if (searchQuery) {
     ])
   );
 
-  if (matchedIds.length === 0) {
-    matchedIds = null;
-    searchScoreMap = null;
-  }
+ 
 }
 
 console.log("🔍 SEARCH matchedIds:", matchedIds?.length || 0);
@@ -270,10 +267,10 @@ if (category) {
   match.category = category;
 }
 
-if (matchedIds && matchedIds.length > 0) {
-  match._id = { $in: matchedIds };
+if (searchQuery) {
+  // 🔥 if searching, NEVER fall back to full feed
+  match._id = { $in: matchedIds || [] };
 }
-
 const pipeline = [
   {
     $geoNear: {
@@ -313,7 +310,11 @@ console.log("Running feed aggregation...");
 
 let rawListings = await Listing.aggregate(pipeline);
 
+
+
 console.log("📍 GEO results (initial radius):", rawListings.length);
+
+console.log("AFTER GEO FILTER:", rawListings.map(l => l.title));
 
 if (searchQuery && rawListings.length === 0) {
  console.log("🔁 Expanding radius for search to 200 miles...");
