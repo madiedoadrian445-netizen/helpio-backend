@@ -184,8 +184,7 @@ console.log("🔎 FEED DEBUG:", {
     const seed = session.seed;
     const day = yyyyMmDdNY();
 
-let matchedIds = [];
-let searchScoreMap = new Map();
+let matchedIds = null;
 
 if (searchQuery) {
   const searchResults = await Listing.aggregate([
@@ -194,35 +193,21 @@ if (searchQuery) {
         index: "default",
         compound: {
           should: [
-            // 🔥 AUTOCOMPLETE (prefix intelligence)
-            {
-              autocomplete: {
-                query: searchQuery,
-                path: ["title", "businessName"],
-                score: { boost: { value: 10 } }
-              }
-            },
-
-            // 🔥 FUZZY MULTI FIELD
+            // Main multi-field search + fuzzy
             {
               text: {
                 query: searchQuery,
                 path: ["title", "description", "businessName", "category"],
-                fuzzy: {
-                  maxEdits: 2,
-                  prefixLength: 1,
-                  maxExpansions: 50
-                },
-                score: { boost: { value: 4 } }
+                fuzzy: { maxEdits: 2, prefixLength: 2, maxExpansions: 50 },
+                score: { boost: { value: 3 } }
               }
             },
-
-            // 🔥 EXACT PHRASE BOOST
+            // Strong boost for exact-ish phrase matches in title & businessName
             {
               phrase: {
                 query: searchQuery,
                 path: ["title", "businessName"],
-                score: { boost: { value: 12 } }
+                score: { boost: { value: 8 } }
               }
             }
           ],
@@ -230,28 +215,15 @@ if (searchQuery) {
         }
       }
     },
-    {
-      $project: {
-        _id: 1,
-        score: { $meta: "searchScore" } // 🔥 capture atlas score
-      }
-    },
+    { $project: { _id: 1 } },
     { $limit: 500 }
   ]);
 
   matchedIds = searchResults.map((r) => r._id);
 
-  // 🔥 build fast lookup map of search scores
-  searchScoreMap = new Map(
-    searchResults.map((r) => [
-      String(r._id),
-      Number(r.score || 0)
-    ])
-  );
-
- 
+  // fallback: if search ran but found nothing, revert to normal feed
+  if (matchedIds.length === 0) matchedIds = null;
 }
-
 console.log("🔍 SEARCH matchedIds:", matchedIds?.length || 0);
     // 2) geo + eligibility query (Listings)
     // assumes Listing has:
@@ -267,10 +239,10 @@ if (category) {
   match.category = category;
 }
 
-if (searchQuery) {
-  // 🔥 if searching, NEVER fall back to full feed
-  match._id = { $in: matchedIds || [] };
+if (matchedIds && matchedIds.length > 0) {
+  match._id = { $in: matchedIds };
 }
+
 const pipeline = [
   {
     $geoNear: {
@@ -288,21 +260,21 @@ const pipeline = [
       distanceMiles: { $divide: ["$distanceMeters", 1609.344] },
     },
   },
- {
-  $project: {
-    _id: 1,
-    provider_id: "$provider",      // map schema -> expected field
-    businessName: 1,
-    title: 1,
-    description: 1,                // ✅ ADD THIS
-    category: 1,
-    photos: "$images",             // map images -> photos
-    price: 1,
-    location: "$location",         // keep full structured location
-    distanceMiles: 1,
+  {
+    $project: {
+      _id: 1,
+      provider_id: "$provider",                 // ✅ map schema -> expected field
+      businessName: 1,
+      title: 1,
+      category: 1,
+      photos: "$images",                        // ✅ map images -> photos
+      price: 1,
+     location: "$location",   // ✅ keep full structured location
+
+      distanceMiles: 1,
+    },
   },
-},
-{ $limit: 2000 },
+  { $limit: 2000 },
 ];
 
 console.log("Running feed aggregation...");
@@ -310,11 +282,7 @@ console.log("Running feed aggregation...");
 
 let rawListings = await Listing.aggregate(pipeline);
 
-
-
 console.log("📍 GEO results (initial radius):", rawListings.length);
-
-console.log("AFTER GEO FILTER:", rawListings.map(l => l.title));
 
 if (searchQuery && rawListings.length === 0) {
  console.log("🔁 Expanding radius for search to 200 miles...");
@@ -393,15 +361,7 @@ for (const l of listings) {
   const geoFactor = distanceDecay(dist);
 
   // divide because lower score ranks higher
-  const rawSearchScore = searchScoreMap?.get(String(l._id)) ?? 0;
-
-// normalize atlas score (prevents overpowering geo/fairness)
-const relevanceBoost = searchQuery
-  ? 1 + Math.log1p(rawSearchScore) * 0.35
-  : 1;
-
-// better matches get slightly stronger position
-const finalScore = sessionScore / (geoFactor * relevanceBoost);
+  const finalScore = sessionScore / geoFactor;
 
   ranked.push({
     ...l,
@@ -443,16 +403,7 @@ if (impressionItems.length) {
 }
 
 
-   const hasMore = pageItems.length === pageSize;
-
-   // 🔎 DEBUG LOG
-console.log("🧾 PAGE DEBUG:", {
-  page,
-  pageSize,
-  total,
-  returned: pageItems.length,
-  hasMore,
-});
+   const hasMore = end < total;
 
 return res.json({
   success: true,
@@ -474,4 +425,5 @@ return res.json({
 }
 
 };
+
 
