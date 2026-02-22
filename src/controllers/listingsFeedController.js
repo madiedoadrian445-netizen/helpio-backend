@@ -171,7 +171,6 @@ if (!userId) {
     const seed = session.seed;
     const day = yyyyMmDdNY();
 
-
 let matchedIds = null;
 
 if (searchQuery) {
@@ -181,28 +180,25 @@ if (searchQuery) {
         index: "default",
         compound: {
           should: [
+            // Main multi-field search + fuzzy
             {
               text: {
                 query: searchQuery,
-                path: "title",
-                fuzzy: { maxEdits: 2 }
-              }
-            },
-            {
-              text: {
-                query: searchQuery,
-                path: "businessName",
-                fuzzy: { maxEdits: 2 }
-              }
-            },
-            {
-              text: {
-                query: searchQuery,
-                path: "category",
+                path: ["title", "description", "businessName", "category"],
+                fuzzy: { maxEdits: 2, prefixLength: 2, maxExpansions: 50 },
                 score: { boost: { value: 3 } }
               }
+            },
+            // Strong boost for exact-ish phrase matches in title & businessName
+            {
+              phrase: {
+                query: searchQuery,
+                path: ["title", "businessName"],
+                score: { boost: { value: 8 } }
+              }
             }
-          ]
+          ],
+          minimumShouldMatch: 1
         }
       }
     },
@@ -210,12 +206,10 @@ if (searchQuery) {
     { $limit: 500 }
   ]);
 
-  matchedIds = searchResults.map(r => r._id);
+  matchedIds = searchResults.map((r) => r._id);
 
-  // ✅ fallback only if search ran
-  if (matchedIds.length === 0) {
-    matchedIds = null;
-  }
+  // fallback: if search ran but found nothing, revert to normal feed
+  if (matchedIds.length === 0) matchedIds = null;
 }
 
     // 2) geo + eligibility query (Listings)
