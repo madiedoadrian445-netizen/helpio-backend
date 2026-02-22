@@ -34,7 +34,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import http from "http";
 import { initSocket } from "./socket.js";
-
+import searchRoutes from "./routes/searchRoutes.js";
 
 process.on("unhandledRejection", (reason) => {
   console.log("💥 UNHANDLED REJECTION:");
@@ -382,7 +382,7 @@ app.use("/api/terminal", terminalRoutes);
 app.use("/api/admin/payouts", adminPayoutRoutes);
 app.use("/api/admin/ledger", adminLedgerRoutes);
 app.use("/api/feed", feedRoutes);
-
+app.use("/api/search", searchRoutes);
 app.use("/api/payouts/dashboard", providerPayoutDashboardRoutes);
 app.use("/api/financial-statements", financialStatementRoutes);
 app.use("/api/admin/revenue", adminRevenueRoutes);
