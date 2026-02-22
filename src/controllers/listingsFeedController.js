@@ -3,9 +3,6 @@ import { v4 as uuidv4 } from "uuid";
 
 import Listing from "../models/Listing.js";
 
-
-
-
 import ProviderDailyStat from "../models/ProviderDailyStat.js";
 import FeedSession from "../models/FeedSession.js";
 
@@ -21,11 +18,6 @@ const ACTIVE_WINDOW_DAYS = 7;
 const TARGET_LEADS_PER_PROVIDER_PER_DAY = 3;
 const COOLDOWN_MINUTES_AFTER_LEAD = 45;
 
-// distance tiers (miles)
-const TIER_A = 5;
-const TIER_B = 15;
-const TIER_C = 35;
-const TIER_D = 60;
 
 function nowNY() {
   // keep simple: server time should be set correctly; if not, use luxon/timezone
@@ -63,12 +55,6 @@ function hashToUnitFloat(input) {
   return clamp01(Math.max(r, 1e-12));
 }
 
-function getTier(distanceMiles) {
-  if (distanceMiles <= TIER_A) return "A";
-  if (distanceMiles <= TIER_B) return "B";
-  if (distanceMiles <= TIER_C) return "C";
-  return "D";
-}
 
 function computeWeight({ leadsToday, cooldownUntil }) {
   // saturation = leads / target
@@ -92,6 +78,17 @@ function computeWeight({ leadsToday, cooldownUntil }) {
 // key = r^(1/weight)
 function weightedKey(r, weight) {
   return Math.pow(r, 1 / weight);
+}
+
+function distanceDecay(distanceMiles) {
+  // “Local-first” curve like FB Marketplace
+  const hardLocal = 15;       // your “default local radius”
+  const pivot = 20;           // softness beyond local
+  const localBoost = distanceMiles <= hardLocal ? 1.35 : 1.0;
+
+  const base = 1 / (1 + Math.max(0, distanceMiles - hardLocal) / pivot);
+
+  return base * localBoost;
 }
 
 // eligibility window date
@@ -159,9 +156,13 @@ if (!userId) {
     const category = req.query.category || null;
     const refresh = String(req.query.refresh || "false") === "true";
 
-    const radiusMiles = Number(req.query.radius || MAX_RADIUS_MILES_DEFAULT);
-    const maxRadiusMiles = Number.isFinite(radiusMiles) ? radiusMiles : MAX_RADIUS_MILES_DEFAULT;
-    const maxRadiusMeters = milesToMeters(Math.min(maxRadiusMiles, TIER_D));
+   
+   const requestedRadius = Number(req.query.radius);
+const maxRadiusMiles = Math.min(
+  MAX_RADIUS_MILES_DEFAULT,
+  Number.isFinite(requestedRadius) ? requestedRadius : MAX_RADIUS_MILES_DEFAULT
+);
+  const maxRadiusMeters = milesToMeters(maxRadiusMiles);
 
     const page = Math.max(1, parseInt(req.query.page || "1", 10));
     const pageSize = Math.min(
@@ -341,47 +342,46 @@ const stats = await ProviderDailyStat.find({
 
 
     // 4) tier + weight + deterministic weighted key
-    const tiers = { A: [], B: [], C: [], D: [] };
+  // 4) blended geo + fairness + session ranking
+const ranked = [];
 
-    for (const l of listings) {
-      const dist = Number(l.distanceMiles || 9999);
-      const tier = getTier(dist);
+for (const l of listings) {
+  const dist = Number(l.distanceMiles || 9999);
 
-      const st = statsMap.get(String(l.provider_id));
-      const leadsToday = st?.leads || 0;
-      const cooldownUntil = st?.cooldown_until || null;
+  const st = statsMap.get(String(l.provider_id));
+  const leadsToday = st?.leads || 0;
+  const cooldownUntil = st?.cooldown_until || null;
 
-      const weight = computeWeight({ leadsToday, cooldownUntil });
+  const fairnessWeight = computeWeight({ leadsToday, cooldownUntil });
 
-      // deterministic random per provider per session
-      const r = hashToUnitFloat(`${String(l.provider_id)}:${seed}`);
+  const r = hashToUnitFloat(`${String(l._id)}:${seed}`);
+  const sessionScore = weightedKey(r, fairnessWeight);
 
-      const key = weightedKey(r, weight);
+  const geoFactor = distanceDecay(dist);
 
-      tiers[tier].push({
-        ...l,
-        tier,
-        weight,
-        _feedKey: key,
-      });
-    }
+  // divide because lower score ranks higher
+  const finalScore = sessionScore / geoFactor;
 
-    // 5) sort within each tier by deterministic weighted key
-    for (const k of ["A", "B", "C", "D"]) {
-      tiers[k].sort((a, b) => a._feedKey - b._feedKey);
-    }
+  ranked.push({
+    ...l,
+    weight: fairnessWeight,
+    _finalScore: finalScore,
+  });
+}
 
-    // 6) concat tiers
-    const finalList = [...tiers.A, ...tiers.B, ...tiers.C, ...tiers.D];
+// 5) unified sort
+ranked.sort((a, b) => a._finalScore - b._finalScore);
+
+const finalList = ranked;
 
     // 7) paginate (stable)
     const total = finalList.length;
     const start = (page - 1) * pageSize;
     const end = start + pageSize;
-    const pageItems = finalList.slice(start, end).map((x) => {
-      const { _feedKey, ...rest } = x;
-      return rest;
-    });
+   const pageItems = finalList.slice(start, end).map((x) => {
+  const { _finalScore, ...rest } = x;
+  return rest;
+});
 
     // 8) impression logging (top N returned results only)
    // 8) impression logging (top N returned results only)
