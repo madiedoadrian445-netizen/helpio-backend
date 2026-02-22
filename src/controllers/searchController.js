@@ -14,7 +14,7 @@ export const suggestSearch = async (req, res) => {
 
     const q = escapeRegex(raw);
 
-    // 1️⃣ Name prefix match (strongest signal)
+    // 1️⃣ Strongest: Category name prefix
     const nameMatches = await Category.find({
       isActive: true,
       name: { $regex: `^${q}`, $options: "i" },
@@ -23,10 +23,12 @@ export const suggestSearch = async (req, res) => {
       .limit(8)
       .select("name slug");
 
-    // 2️⃣ Keyword match (secondary)
+    // 2️⃣ Keyword match (correct array handling)
     const keywordMatches = await Category.find({
       isActive: true,
-      keywords: { $regex: q, $options: "i" },
+      keywords: {
+        $elemMatch: { $regex: q, $options: "i" },
+      },
       _id: { $nin: nameMatches.map((c) => c._id) },
     })
       .sort({ order: 1, name: 1 })
@@ -39,7 +41,7 @@ export const suggestSearch = async (req, res) => {
       type: "category",
       label: cat.name,
       subtitle: "Category",
-      value: cat.slug || cat.name,
+      value: cat.slug,
     }));
 
     return res.json({
