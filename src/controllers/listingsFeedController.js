@@ -149,6 +149,9 @@ if (!userId) {
     const lng = Number(req.query.lng);
     const searchQuery = req.query.search?.trim() || null;
 
+
+
+
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       return res.status(400).json({ success: false, message: "lat/lng required" });
     }
@@ -165,6 +168,15 @@ if (!userId) {
       50,
       Math.max(1, parseInt(req.query.pageSize || String(PAGE_SIZE_DEFAULT), 10))
     );
+
+console.log("🔎 FEED DEBUG:", {
+  lat,
+  lng,
+  searchQuery,
+  category,
+  radiusMiles: maxRadiusMiles,
+  userId
+});
 
     // 1) session seed
     const session = await getOrCreateSession({ userId, refresh });
