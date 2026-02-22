@@ -1,5 +1,13 @@
 import Listing from "../models/Listing.js";
 
+const toTitleCase = (str = "") =>
+  str
+    .toLowerCase()
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+
 export const suggestSearch = async (req, res) => {
   try {
     const { q } = req.query;
@@ -10,44 +18,33 @@ export const suggestSearch = async (req, res) => {
 
     const query = q.trim();
 
-    // 1️⃣ Category matches
+    // ✅ Category-only matches
     const categoryMatches = await Listing.distinct("category", {
       category: { $regex: `^${query}`, $options: "i" },
     });
 
-    // 2️⃣ Title matches (service name)
-    const titleMatches = await Listing.find({
-      title: { $regex: query, $options: "i" },
-    })
-      .limit(5)
-      .select("title");
-
+    // ✅ normalize + dedupe + cap
+    const seen = new Set();
     const suggestions = [];
 
-    // Add categories
-    categoryMatches.slice(0, 5).forEach((cat) => {
+    for (const raw of categoryMatches) {
+      if (!raw) continue;
+      const label = toTitleCase(String(raw).trim());
+      const key = label.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+
       suggestions.push({
         type: "category",
-        label: cat,
+        label,
         subtitle: "Category",
-        value: cat,
+        value: label,
       });
-    });
 
-    // Add services
-    titleMatches.forEach((item) => {
-      suggestions.push({
-        type: "service",
-        label: item.title,
-        subtitle: "Service",
-        value: item.title,
-      });
-    });
+      if (suggestions.length >= 8) break;
+    }
 
-    return res.json({
-      success: true,
-      suggestions,
-    });
+    return res.json({ success: true, suggestions });
   } catch (err) {
     console.error("Suggest error:", err);
     return res.status(500).json({
