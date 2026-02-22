@@ -442,7 +442,16 @@ if (impressionItems.length) {
 }
 
 
-   const hasMore = end < total;
+   const hasMore = pageItems.length === pageSize;
+
+   // 🔎 DEBUG LOG
+console.log("🧾 PAGE DEBUG:", {
+  page,
+  pageSize,
+  total,
+  returned: pageItems.length,
+  hasMore,
+});
 
 return res.json({
   success: true,
