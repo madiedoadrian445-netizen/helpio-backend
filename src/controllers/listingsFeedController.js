@@ -223,7 +223,7 @@ if (searchQuery) {
   // fallback: if search ran but found nothing, revert to normal feed
   if (matchedIds.length === 0) matchedIds = null;
 }
-
+console.log("🔍 SEARCH matchedIds:", matchedIds?.length || 0);
     // 2) geo + eligibility query (Listings)
     // assumes Listing has:
     // - provider_id
@@ -279,11 +279,39 @@ const pipeline = [
 console.log("Running feed aggregation...");
 
 
+let rawListings = await Listing.aggregate(pipeline);
 
-const rawListings = await Listing.aggregate(pipeline);
+console.log("📍 GEO results (initial radius):", rawListings.length);
+
+if (searchQuery && rawListings.length === 0) {
+ console.log("🔁 Expanding radius for search to 200 miles...");
+console.log("🔍 SEARCH matchedIds:", matchedIds?.length || 0);
+
+  const expandedPipeline = [
+    {
+      $geoNear: {
+        near: { type: "Point", coordinates: [lng, lat] },
+        key: "location.coordinates",
+        distanceField: "distanceMeters",
+        spherical: true,
+        maxDistance: milesToMeters(200), // expand to 200 miles
+        query: match,
+      },
+    },
+    {
+      $addFields: {
+        distanceMiles: { $divide: ["$distanceMeters", 1609.344] },
+      },
+    },
+    { $project: pipeline[2].$project },
+    { $limit: 2000 },
+  ];
+
+  rawListings = await Listing.aggregate(expandedPipeline);
+}
 
 // 🔥 remove listings missing provider
-const listings = rawListings.filter((l) => l.provider_id);
+const listings = rawListings.filter((l) => l.provider_id != null);
 
 
     if (!listings.length) {
@@ -359,20 +387,16 @@ const stats = await ProviderDailyStat.find({
    // 8) impression logging (top N returned results only)
 const impressionItems = pageItems
   .slice(0, IMPRESSION_TOP_N)
- .filter((it) => it.provider_id && typeof it.provider_id === "string");
-
-
+  .filter((it) => it.provider_id);
 
 if (impressionItems.length) {
   const bulk = impressionItems.map((it) => ({
-  updateOne: {
-    filter: { providerId: String(it.provider_id), date: day },
-
-    update: { $inc: { impressions: 1 } },
-    upsert: true,
-  },
-}));
-
+    updateOne: {
+      filter: { providerId: String(it.provider_id), date: day },
+      update: { $inc: { impressions: 1 } },
+      upsert: true,
+    },
+  }));
 
   await ProviderDailyStat.bulkWrite(bulk, { ordered: false });
 }
