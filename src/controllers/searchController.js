@@ -1,50 +1,51 @@
-import Listing from "../models/Listing.js";
+// src/controllers/searchController.js
+import Category from "../models/Category.js";
 
-const toTitleCase = (str = "") =>
-  str
-    .toLowerCase()
-    .split(" ")
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+const escapeRegex = (text = "") =>
+  text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 export const suggestSearch = async (req, res) => {
   try {
-    const { q } = req.query;
+    const raw = (req.query.q || "").trim();
 
-    if (!q || q.trim().length === 0) {
+    if (!raw) {
       return res.json({ success: true, suggestions: [] });
     }
 
-    const query = q.trim();
+    const q = escapeRegex(raw);
 
-    // ✅ Category-only matches
-    const categoryMatches = await Listing.distinct("category", {
-      category: { $regex: `^${query}`, $options: "i" },
+    // 1️⃣ Name prefix match (strongest signal)
+    const nameMatches = await Category.find({
+      isActive: true,
+      name: { $regex: `^${q}`, $options: "i" },
+    })
+      .sort({ order: 1, name: 1 })
+      .limit(8)
+      .select("name slug");
+
+    // 2️⃣ Keyword match (secondary)
+    const keywordMatches = await Category.find({
+      isActive: true,
+      keywords: { $regex: q, $options: "i" },
+      _id: { $nin: nameMatches.map((c) => c._id) },
+    })
+      .sort({ order: 1, name: 1 })
+      .limit(Math.max(0, 8 - nameMatches.length))
+      .select("name slug");
+
+    const combined = [...nameMatches, ...keywordMatches];
+
+    const suggestions = combined.map((cat) => ({
+      type: "category",
+      label: cat.name,
+      subtitle: "Category",
+      value: cat.slug || cat.name,
+    }));
+
+    return res.json({
+      success: true,
+      suggestions,
     });
-
-    // ✅ normalize + dedupe + cap
-    const seen = new Set();
-    const suggestions = [];
-
-    for (const raw of categoryMatches) {
-      if (!raw) continue;
-      const label = toTitleCase(String(raw).trim());
-      const key = label.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-
-      suggestions.push({
-        type: "category",
-        label,
-        subtitle: "Category",
-        value: label,
-      });
-
-      if (suggestions.length >= 8) break;
-    }
-
-    return res.json({ success: true, suggestions });
   } catch (err) {
     console.error("Suggest error:", err);
     return res.status(500).json({
