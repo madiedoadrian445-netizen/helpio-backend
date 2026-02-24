@@ -75,6 +75,15 @@ if (!sender) {
 );
 
 
+if (sender.role === "provider") {
+  convo.providerLastReadAt = now;
+} else {
+  convo.customerLastReadAt = now;
+}
+
+await convo.save();
+
+
 // 🔥 REALTIME READ RECEIPT EMIT
 try {
   const io = getIO();

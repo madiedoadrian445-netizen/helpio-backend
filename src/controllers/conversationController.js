@@ -61,11 +61,17 @@ const recordLeadIfNewConversation = async ({ providerId }) => {
   );
 };
 
+
 /* =========================================================
    CREATE OR FETCH CONVERSATION
    ========================================================= */
 export const getOrCreateConversationWithCustomer = async (req, res) => {
   try {
+
+const now = new Date();
+const isProvider = !!req.user?.providerId;
+
+
     // 🔎 DEBUG LOGS — KEEP IF YOU WANT
     console.log("========== CONVERSATION DEBUG ==========");
     console.log("REQ PARAMS:", req.params);
@@ -143,23 +149,24 @@ if (serviceId) {
   }
 
   convo = await Conversation.findOneAndUpdate(
-    {
-      providerId: toObjectId(providerId),
-      customerId: toObjectId(customerId),
-      serviceId: toObjectId(serviceId),
+  {
+    providerId: toObjectId(providerId),
+    customerId: toObjectId(customerId),
+    serviceId: toObjectId(serviceId),
+  },
+  {
+    $setOnInsert: {
+      providerLastReadAt: isProvider ? now : null,
+      customerLastReadAt: isProvider ? null : now,
+      createdAt: now,
+      updatedAt: now,
     },
-    {
-      $setOnInsert: {
-        providerLastReadAt: null,
-        customerLastReadAt: null,
-        createdAt: new Date(),
-      },
-    },
-    {
-      new: true,
-      upsert: true,
-    }
-  );
+  },
+  {
+    new: true,
+    upsert: true,
+  }
+);
 
 } else {
 
@@ -183,10 +190,11 @@ if (serviceId) {
     },
     {
       $setOnInsert: {
-        providerLastReadAt: null,
-        customerLastReadAt: null,
-        createdAt: new Date(),
-      },
+  providerLastReadAt: isProvider ? now : null,
+  customerLastReadAt: isProvider ? null : now,
+  createdAt: now,
+  updatedAt: now,
+},
     },
     {
       new: true,
@@ -230,7 +238,7 @@ const message = await Message.create({
   text: text.trim(),
 });
       // update conversation preview
-     const now = new Date();
+ 
 
 // update conversation preview
 convo.lastMessageText = message.text;
@@ -283,21 +291,30 @@ export const listMyConversations = async (req, res) => {
     console.log("req.user?.providerId:", req.user?.providerId);
     console.log("================================");
 
+// ✅ normalize viewer ids once
+const viewerProviderId = req.user?.providerId
+  ? String(typeof req.user.providerId === "object" ? req.user.providerId._id : req.user.providerId)
+  : null;
+
+const viewerCustomerId = req.user?._id
+  ? String(typeof req.user._id === "object" ? req.user._id._id : req.user._id)
+  : null;
+
     const limit = Math.min(parseInt(req.query.limit || "50", 10), 100);
     const includeArchived = req.query.includeArchived === "true";
 
     const or = [];
 
     // Provider-side conversations
-    if (req.user?.providerId) {
-      const providerBranch = { providerId: req.user.providerId };
+   if (viewerProviderId) {
+  const providerBranch = { providerId: toObjectId(viewerProviderId) };
       if (!includeArchived) providerBranch.providerArchivedAt = null;
       or.push(providerBranch);
     }
 
     // Customer-side conversations
-    if (req.user?._id) {
-      const customerBranch = { customerId: req.user._id };
+   if (viewerCustomerId) {
+  const customerBranch = { customerId: toObjectId(viewerCustomerId) };
       if (!includeArchived) customerBranch.customerArchivedAt = null;
       or.push(customerBranch);
     }
@@ -326,16 +343,34 @@ export const listMyConversations = async (req, res) => {
       .lean();
 
     const mapped = conversations.map((c) => {
-      const isProviderView =
-        !!req.user?.providerId &&
-        String(c.providerId?._id || c.providerId) === String(req.user.providerId);
+     const convoProviderId = String(c.providerId?._id || c.providerId);
 
-    const unread =
-  !!c.lastMessageSenderRole &&
-  (
-    (isProviderView && c.lastMessageSenderRole === "customer") ||
-    (!isProviderView && c.lastMessageSenderRole === "provider")
-  );
+const isProviderView =
+  !!viewerProviderId &&
+  convoProviderId === viewerProviderId;
+const last = c.lastMessageAt ? new Date(c.lastMessageAt).getTime() : 0;
+
+const read = isProviderView
+  ? c.providerLastReadAt
+    ? new Date(c.providerLastReadAt).getTime()
+    : 0
+  : c.customerLastReadAt
+  ? new Date(c.customerLastReadAt).getTime()
+  : 0;
+
+const unread =
+  last > read &&
+  c.lastMessageSenderRole === (isProviderView ? "customer" : "provider");
+
+  console.log("DEBUG UNREAD CHECK:", {
+  conversationId: c._id,
+  lastMessageSenderRole: c.lastMessageSenderRole,
+  isProviderView,
+  lastMessageAt: c.lastMessageAt,
+  providerLastReadAt: c.providerLastReadAt,
+  customerLastReadAt: c.customerLastReadAt,
+  computedUnread: unread
+});
       let customer = null;
       let provider = null;
 
