@@ -330,20 +330,12 @@ export const listMyConversations = async (req, res) => {
         !!req.user?.providerId &&
         String(c.providerId?._id || c.providerId) === String(req.user.providerId);
 
-      const last = c.lastMessageAt ? new Date(c.lastMessageAt).getTime() : 0;
-
-      const read = isProviderView
-        ? c.providerLastReadAt
-          ? new Date(c.providerLastReadAt).getTime()
-          : 0
-        : c.customerLastReadAt
-        ? new Date(c.customerLastReadAt).getTime()
-        : 0;
-
-      const unread =
-        last > read &&
-        c.lastMessageSenderRole === (isProviderView ? "customer" : "provider");
-
+    const unread =
+  !!c.lastMessageSenderRole &&
+  (
+    (isProviderView && c.lastMessageSenderRole === "customer") ||
+    (!isProviderView && c.lastMessageSenderRole === "provider")
+  );
       let customer = null;
       let provider = null;
 
