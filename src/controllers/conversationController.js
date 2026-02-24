@@ -216,25 +216,33 @@ console.log("====== MESSAGE DEBUG ======");
 
 
 
-      const senderProviderId = req.user?.providerId ? String(req.user.providerId) : null;
-
-const message = await Message.create({
+    const message = await Message.create({
   conversationId: convo._id,
 
-  // senderId must be the SENDER's identity, not convo.providerId (recipient)
-  senderId: toObjectId(isProvider ? senderProviderId : customerId),
+  // ✅ IMPORTANT: senderId should be the authenticated USER id for BOTH roles
+  // (this is what your UI usually compares against for "my messages")
+  senderId: toObjectId(req.user._id),
 
-  providerId: toObjectId(providerId),    // ✅ convo recipient provider
-  customerId: toObjectId(customerId),    // ✅ convo customer (user._id)
+  providerId: toObjectId(providerId),
+  customerId: toObjectId(customerId),
   senderRole: isProvider ? "provider" : "customer",
   text: text.trim(),
 });
       // update conversation preview
-      convo.lastMessageText = message.text;
-      convo.lastMessageAt = new Date();
-      convo.lastMessageSenderRole = message.senderRole;
+   const now = new Date();
 
-      await convo.save();
+convo.lastMessageText = message.text;
+convo.lastMessageAt = now;
+convo.lastMessageSenderRole = message.senderRole;
+
+// 🔥 CRITICAL FIX — mark sender as having read their own message
+if (isProvider) {
+  convo.providerLastReadAt = now;
+} else {
+  convo.customerLastReadAt = now;
+}
+
+await convo.save();
     }
 
     return res.json({
