@@ -1,3 +1,4 @@
+
 // src/controllers/conversationController.js
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
@@ -216,33 +217,33 @@ console.log("====== MESSAGE DEBUG ======");
 
 
 
-    const message = await Message.create({
+      const senderProviderId = req.user?.providerId ? String(req.user.providerId) : null;
+
+const message = await Message.create({
   conversationId: convo._id,
 
-  // ✅ IMPORTANT: senderId should be the authenticated USER id for BOTH roles
-  // (this is what your UI usually compares against for "my messages")
-  senderId: toObjectId(req.user._id),
+  // senderId must be the SENDER's identity, not convo.providerId (recipient)
+  senderId: toObjectId(isProvider ? senderProviderId : customerId),
 
-  providerId: toObjectId(providerId),
-  customerId: toObjectId(customerId),
+  providerId: toObjectId(providerId),    // ✅ convo recipient provider
+  customerId: toObjectId(customerId),    // ✅ convo customer (user._id)
   senderRole: isProvider ? "provider" : "customer",
   text: text.trim(),
 });
-      // update conversation preview
-   const now = new Date();
+const now = new Date();
 
-convo.lastMessageText = message.text;
-convo.lastMessageAt = now;
-convo.lastMessageSenderRole = message.senderRole;
-
-// 🔥 CRITICAL FIX — mark sender as having read their own message
 if (isProvider) {
   convo.providerLastReadAt = now;
 } else {
   convo.customerLastReadAt = now;
 }
 
-await convo.save();
+      // update conversation preview
+      convo.lastMessageText = message.text;
+     convo.lastMessageAt = now;
+      convo.lastMessageSenderRole = message.senderRole;
+
+      await convo.save();
     }
 
     return res.json({
@@ -491,5 +492,3 @@ export const markConversationRead = async (req, res) => {
     return sendError(res, 500, "Server error.");
   }
 };
-
-
