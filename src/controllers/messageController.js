@@ -16,13 +16,22 @@ const sendError = (res, status, message) =>
  * NEVER from conversation ownership
  */
 const getSenderContext = (req) => {
-  if (!req.user?._id) return null;
+  if (!req.user) return null;
+
+  if (req.user.providerId) {
+    return {
+      role: "provider",
+      senderId: req.user.providerId,
+    };
+  }
 
   return {
-    role: req.user.providerId ? "provider" : "customer",
-    senderId: req.user._id,   // ✅ ALWAYS USER ID
+    role: "customer",
+    senderId:
+      req.user.customerId || req.user._id,
   };
 };
+
 
 
 /**
@@ -386,6 +395,5 @@ const convo = await Conversation.findOneAndUpdate(
     return sendError(res, 500, "Server error.");
   }
 };
-
 
 

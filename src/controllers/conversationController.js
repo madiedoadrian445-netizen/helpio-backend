@@ -204,8 +204,8 @@ if (serviceId) {
        =============================== */
     const { text } = req.body;
 
-   if (text && text.trim()) {
-  const isProvider = !!req.user?.providerId;
+    if (text && text.trim()) {
+      const isProvider = !!req.user?.providerId;
 
 console.log("====== MESSAGE DEBUG ======");
   console.log("convo._id:", convo?._id);
@@ -216,24 +216,22 @@ console.log("====== MESSAGE DEBUG ======");
 
 
 
-  const message = await Message.create({
-    conversationId: convo._id,
-    senderId: toObjectId(req.user._id), // ✅ FIXED
-    providerId: toObjectId(providerId),
-    customerId: toObjectId(customerId),
-    senderRole: isProvider ? "provider" : "customer",
-    text: text.trim(),
-  });
+      const message = await Message.create({
+        conversationId: convo._id,
+        senderId: toObjectId(isProvider ? providerId : customerId),
+        providerId: toObjectId(providerId),
+        customerId: toObjectId(customerId),
+        senderRole: isProvider ? "provider" : "customer",
+        text: text.trim(),
+      });
 
-  convo.lastMessageText = message.text;
-  convo.lastMessageAt = new Date();
-  convo.lastMessageSenderRole = message.senderRole;
+      // update conversation preview
+      convo.lastMessageText = message.text;
+      convo.lastMessageAt = new Date();
+      convo.lastMessageSenderRole = message.senderRole;
 
-  await convo.save();
-}
-
-
-
+      await convo.save();
+    }
 
     return res.json({
       success: true,
@@ -481,3 +479,4 @@ export const markConversationRead = async (req, res) => {
     return sendError(res, 500, "Server error.");
   }
 };
+
