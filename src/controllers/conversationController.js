@@ -216,15 +216,19 @@ console.log("====== MESSAGE DEBUG ======");
 
 
 
-      const message = await Message.create({
-        conversationId: convo._id,
-        senderId: toObjectId(isProvider ? providerId : customerId),
-        providerId: toObjectId(providerId),
-        customerId: toObjectId(customerId),
-        senderRole: isProvider ? "provider" : "customer",
-        text: text.trim(),
-      });
+      const senderProviderId = req.user?.providerId ? String(req.user.providerId) : null;
 
+const message = await Message.create({
+  conversationId: convo._id,
+
+  // senderId must be the SENDER's identity, not convo.providerId (recipient)
+  senderId: toObjectId(isProvider ? senderProviderId : customerId),
+
+  providerId: toObjectId(providerId),    // ✅ convo recipient provider
+  customerId: toObjectId(customerId),    // ✅ convo customer (user._id)
+  senderRole: isProvider ? "provider" : "customer",
+  text: text.trim(),
+});
       // update conversation preview
       convo.lastMessageText = message.text;
       convo.lastMessageAt = new Date();
