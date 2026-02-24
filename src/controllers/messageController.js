@@ -75,15 +75,6 @@ if (!sender) {
 );
 
 
-if (sender.role === "provider") {
-  convo.providerLastReadAt = now;
-} else {
-  convo.customerLastReadAt = now;
-}
-
-await convo.save();
-
-
 // 🔥 REALTIME READ RECEIPT EMIT
 try {
   const io = getIO();
@@ -288,20 +279,14 @@ if (!sender) {
 });
 
 
- convo.lastMessageAt = now;
+   convo.lastMessageAt = now;
 convo.lastMessageSenderRole = sender.role;
 convo.lastMessageText = isImage
   ? `📷 Photo${imageUrls.length > 1 ? "s" : ""}`
   : cleanText.slice(0, 200);
 
+// 🔥 CRITICAL FIX — forces it into Messages list
 convo.updatedAt = now;
-
-// ✅ CRITICAL FIX — mark sender as having read their own message
-if (sender.role === "provider") {
-  convo.providerLastReadAt = now;
-} else {
-  convo.customerLastReadAt = now;
-}
 
 await convo.save();
 
@@ -389,18 +374,12 @@ const convo = await Conversation.findOneAndUpdate(
     });
 
     convo.lastMessageAt = now;
-convo.lastMessageSenderRole = sender.role;
-convo.lastMessageText = text.trim().slice(0, 200);
-convo.updatedAt = now;
+    convo.lastMessageSenderRole = sender.role;
+    convo.lastMessageText = text.trim().slice(0, 200);
+    convo.updatedAt = now;
 
-// ✅ CRITICAL FIX — initialize sender read state
-if (sender.role === "provider") {
-  convo.providerLastReadAt = now;
-} else {
-  convo.customerLastReadAt = now;
-}
+    await convo.save();
 
-await convo.save();
     try {
       const io = getIO();
       io.to(String(convo._id)).emit("newMessage", msg);
@@ -416,5 +395,4 @@ await convo.save();
     return sendError(res, 500, "Server error.");
   }
 };
-
 
