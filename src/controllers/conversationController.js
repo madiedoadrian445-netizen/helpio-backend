@@ -230,11 +230,21 @@ const message = await Message.create({
   text: text.trim(),
 });
       // update conversation preview
-      convo.lastMessageText = message.text;
-      convo.lastMessageAt = new Date();
-      convo.lastMessageSenderRole = message.senderRole;
+     const now = new Date();
 
-      await convo.save();
+// update conversation preview
+convo.lastMessageText = message.text;
+convo.lastMessageAt = now;
+convo.lastMessageSenderRole = message.senderRole;
+
+// ✅ CRITICAL FIX — mark sender as having read their own message
+if (isProvider) {
+  convo.providerLastReadAt = now;
+} else {
+  convo.customerLastReadAt = now;
+}
+
+await convo.save();
     }
 
     return res.json({
