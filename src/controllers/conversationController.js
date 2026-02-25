@@ -230,18 +230,18 @@ const message = await Message.create({
   senderRole: isProvider ? "provider" : "customer",
   text: text.trim(),
 });
-const now = new Date();
+const createdAt = message.createdAt;
 
 if (isProvider) {
-  convo.providerLastReadAt = now;
+  convo.providerLastReadAt = createdAt;
 } else {
-  convo.customerLastReadAt = now;
+  convo.customerLastReadAt = createdAt;
 }
 
-      // update conversation preview
-      convo.lastMessageText = message.text;
-     convo.lastMessageAt = now;
-      convo.lastMessageSenderRole = message.senderRole;
+// update conversation preview
+convo.lastMessageText = message.text;
+convo.lastMessageAt = createdAt;
+convo.lastMessageSenderRole = message.senderRole;
 
       await convo.save();
     }
@@ -339,10 +339,9 @@ export const listMyConversations = async (req, res) => {
         ? new Date(c.customerLastReadAt).getTime()
         : 0;
 
-      const unread =
-        last > read &&
-        c.lastMessageSenderRole === (isProviderView ? "customer" : "provider");
-
+    const unread =
+  c.lastMessageSenderRole === (isProviderView ? "customer" : "provider") &&
+  (!read || last > read);
       let customer = null;
       let provider = null;
 
