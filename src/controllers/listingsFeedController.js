@@ -260,20 +260,19 @@ const pipeline = [
       distanceMiles: { $divide: ["$distanceMeters", 1609.344] },
     },
   },
-  {
-    $project: {
-      _id: 1,
-      provider_id: "$provider",                 // ✅ map schema -> expected field
-      businessName: 1,
-      title: 1,
-      category: 1,
-      photos: "$images",                        // ✅ map images -> photos
-      price: 1,
-     location: "$location",   // ✅ keep full structured location
-
-      distanceMiles: 1,
-    },
+ {
+  $project: {
+    _id: 1,
+    provider: { $toString: "$provider" },   // ✅ force string
+    businessName: 1,
+    title: 1,
+    category: 1,
+    photos: "$images",
+    price: 1,
+    location: "$location",
+    distanceMiles: 1,
   },
+},
   { $limit: 2000 },
 ];
 
@@ -312,7 +311,7 @@ console.log("🔍 SEARCH matchedIds:", matchedIds?.length || 0);
 }
 
 // 🔥 remove listings missing provider
-const listings = rawListings.filter((l) => l.provider_id != null);
+const listings = rawListings.filter((l) => l.provider != null);
 
 
    if (!listings.length) {
@@ -329,8 +328,8 @@ const listings = rawListings.filter((l) => l.provider_id != null);
 }
 
     // 3) load today’s stats for providers in this result set
-    const providerIds = [
-  ...new Set(listings.map((l) => String(l.provider_id)).filter(Boolean)),
+  const providerIds = [
+  ...new Set(listings.map((l) => String(l.provider)).filter(Boolean)),
 ];
 
 const stats = await ProviderDailyStat.find({
@@ -349,7 +348,7 @@ const ranked = [];
 for (const l of listings) {
   const dist = Number(l.distanceMiles || 9999);
 
-  const st = statsMap.get(String(l.provider_id));
+ const st = statsMap.get(String(l.provider));
   const leadsToday = st?.leads || 0;
   const cooldownUntil = st?.cooldown_until || null;
 
@@ -388,12 +387,12 @@ const finalList = ranked;
    // 8) impression logging (top N returned results only)
 const impressionItems = pageItems
   .slice(0, IMPRESSION_TOP_N)
-  .filter((it) => it.provider_id);
+ .filter((it) => it.provider);
 
 if (impressionItems.length) {
   const bulk = impressionItems.map((it) => ({
     updateOne: {
-      filter: { providerId: String(it.provider_id), date: day },
+    filter: { providerId: String(it.provider), date: day },
       update: { $inc: { impressions: 1 } },
       upsert: true,
     },
