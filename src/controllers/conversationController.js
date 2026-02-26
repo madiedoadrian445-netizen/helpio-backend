@@ -351,14 +351,14 @@ const lastSenderId = c.lastMessageSenderId
   : null;
 
 // Determine which side of THIS conversation the viewer is on
-const viewerIsProviderSide =
-  req.user?.providerId &&
-  String(c.providerId?._id || c.providerId) ===
-  String(req.user.providerId?._id || req.user.providerId);
-// Determine if last message was sent by the viewer
-const mine = viewerIsProviderSide
-  ? lastSenderId === String(req.user.providerId)
-  : lastSenderId === String(req.user._id);
+// All possible IDs that belong to THIS logged-in user
+const myIds = [
+  req.user?._id ? String(req.user._id) : null,
+  req.user?.providerId ? String(req.user.providerId) : null,
+].filter(Boolean);
+
+// Determine if last message was sent by me
+const mine = myIds.includes(lastSenderId);
 
 // unread if newer than readAt AND last message is not mine
 const unread = !!last && last > read && !mine;
