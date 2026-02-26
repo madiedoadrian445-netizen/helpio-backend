@@ -346,20 +346,21 @@ export const listMyConversations = async (req, res) => {
         : c.customerLastReadAt
         ? new Date(c.customerLastReadAt).getTime()
         : 0;
-const mySenderIds = new Set(
-  [
-    req.user?.providerId ? String(req.user.providerId) : null,
-    req.user?._id ? String(req.user._id) : null,
-  ].filter(Boolean)
-);
-
 const lastSenderId = c.lastMessageSenderId
   ? String(c.lastMessageSenderId?._id || c.lastMessageSenderId)
   : null;
 
-const mine = lastSenderId && mySenderIds.has(lastSenderId);
+// Determine which side of THIS conversation the viewer is on
+const viewerIsProviderSide =
+  req.user?.providerId &&
+  String(c.providerId?._id || c.providerId) === String(req.user.providerId);
 
-// ✅ unread if it's newer than my readAt AND last message is not mine
+// Determine if last message was sent by the viewer
+const mine = viewerIsProviderSide
+  ? lastSenderId === String(req.user.providerId)
+  : lastSenderId === String(req.user._id);
+
+// unread if newer than readAt AND last message is not mine
 const unread = !!last && last > read && !mine;
       let customer = null;
       let provider = null;
