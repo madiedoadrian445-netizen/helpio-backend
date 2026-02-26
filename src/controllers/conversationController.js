@@ -232,11 +232,19 @@ const message = await Message.create({
 });
 const createdAt = message.createdAt;
 
-if (isProvider) {
+// 🔥 Determine which side of THIS conversation the sender belongs to
+const senderIsProviderSide =
+  req.user?.providerId &&
+  String(convo.providerId) === String(req.user.providerId);
+
+if (senderIsProviderSide) {
   convo.providerLastReadAt = createdAt;
 } else {
+  // sender is customer side (could be real customer OR provider acting as customer)
   convo.customerLastReadAt = createdAt;
 }
+
+convo.lastMessageSenderId = message.senderId;
 
 // update conversation preview
 convo.lastMessageText = message.text;
@@ -338,10 +346,21 @@ export const listMyConversations = async (req, res) => {
         : c.customerLastReadAt
         ? new Date(c.customerLastReadAt).getTime()
         : 0;
+const mySenderIds = new Set(
+  [
+    req.user?.providerId ? String(req.user.providerId) : null,
+    req.user?._id ? String(req.user._id) : null,
+  ].filter(Boolean)
+);
 
-    const unread =
-  c.lastMessageSenderRole === (isProviderView ? "customer" : "provider") &&
-  (!read || last > read);
+const lastSenderId = c.lastMessageSenderId
+  ? String(c.lastMessageSenderId?._id || c.lastMessageSenderId)
+  : null;
+
+const mine = lastSenderId && mySenderIds.has(lastSenderId);
+
+// ✅ unread if it's newer than my readAt AND last message is not mine
+const unread = !!last && last > read && !mine;
       let customer = null;
       let provider = null;
 
@@ -468,22 +487,34 @@ export const markConversationRead = async (req, res) => {
 
     const now = new Date();
 
-    if (req.user?.providerId) {
-      convo.providerLastReadAt = now;
-    } else {
-      convo.customerLastReadAt = now;
-    }
+  const viewerIsProviderSide =
+  req.user?.providerId &&
+  String(convo.providerId) === String(req.user.providerId);
 
-    await convo.save();
+if (viewerIsProviderSide) {
+  // I'm the provider side of THIS conversation
+  convo.providerLastReadAt = now;
+} else {
+  // I'm the customer side (could be real customer OR provider acting as customer)
+  convo.customerLastReadAt = now;
+}
 
-    await Message.updateMany(
-      {
-        conversationId,
-        senderRole: req.user?.providerId ? "customer" : "provider",
-        readAt: null,
-      },
-      { $set: { readAt: now } }
-    );
+await convo.save();
+
+// mark messages as read where sender is NOT me
+const mySenderIds = [
+  req.user?.providerId ? String(req.user.providerId) : null,
+  req.user?._id ? String(req.user._id) : null,
+].filter(Boolean);
+
+await Message.updateMany(
+  {
+    conversationId,
+    senderId: { $nin: mySenderIds },
+    readAt: null,
+  },
+  { $set: { readAt: now } }
+);
 
     return res.json({ success: true });
   } catch (err) {

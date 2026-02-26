@@ -35,6 +35,13 @@ const ConversationSchema = new Schema(
       default: "provider",
     },
 
+
+lastMessageSenderId: {
+  type: Schema.Types.ObjectId,
+  required: false,
+  index: true,
+},
+
     // iMessage-style read tracking
     providerLastReadAt: { type: Date, default: null },
     customerLastReadAt: { type: Date, default: null },
