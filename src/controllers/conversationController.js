@@ -235,12 +235,12 @@ const createdAt = message.createdAt;
 // 🔥 Determine which side of THIS conversation the sender belongs to
 const senderIsProviderSide =
   req.user?.providerId &&
-  String(convo.providerId) === String(req.user.providerId);
+  String(convo.providerId?._id || convo.providerId) ===
+  String(req.user.providerId?._id || req.user.providerId);
 
 if (senderIsProviderSide) {
   convo.providerLastReadAt = createdAt;
 } else {
-  // sender is customer side (could be real customer OR provider acting as customer)
   convo.customerLastReadAt = createdAt;
 }
 
@@ -353,8 +353,8 @@ const lastSenderId = c.lastMessageSenderId
 // Determine which side of THIS conversation the viewer is on
 const viewerIsProviderSide =
   req.user?.providerId &&
-  String(c.providerId?._id || c.providerId) === String(req.user.providerId);
-
+  String(c.providerId?._id || c.providerId) ===
+  String(req.user.providerId?._id || req.user.providerId);
 // Determine if last message was sent by the viewer
 const mine = viewerIsProviderSide
   ? lastSenderId === String(req.user.providerId)
@@ -490,7 +490,8 @@ export const markConversationRead = async (req, res) => {
 
   const viewerIsProviderSide =
   req.user?.providerId &&
-  String(convo.providerId) === String(req.user.providerId);
+  String(convo.providerId?._id || convo.providerId) ===
+  String(req.user.providerId?._id || req.user.providerId);
 
 if (viewerIsProviderSide) {
   // I'm the provider side of THIS conversation
