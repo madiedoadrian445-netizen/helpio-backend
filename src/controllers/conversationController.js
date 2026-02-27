@@ -5,6 +5,7 @@ import Message from "../models/Message.js";
 import Listing from "../models/Listing.js";
 import ProviderDailyStat from "../models/ProviderDailyStat.js";
 import mongoose from "mongoose";
+import { getIO } from "../socket.js";
 
 const toObjectId = (id) => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -254,6 +255,8 @@ convo.lastMessageSenderRole = message.senderRole;
       await convo.save();
     }
 
+
+    
     return res.json({
       success: true,
       conversation: convo,
@@ -518,6 +521,15 @@ await Message.updateMany(
   },
   { $set: { readAt: now } }
 );
+
+// 🔥 EMIT REAL-TIME READ RECEIPT
+const io = getIO();
+
+io.to(String(conversationId)).emit("messagesRead", {
+  conversationId,
+  readerId: req.user?.providerId || req.user?._id,
+  readAt: now,
+});
 
     return res.json({ success: true });
   } catch (err) {
