@@ -74,6 +74,14 @@ if (!sender) {
   }
 );
 
+// 🔥 UPDATE CONVERSATION LAST READ TIMESTAMP BASED ON ID (NOT ROLE)
+if (String(convo.providerId) === String(sender.senderId)) {
+  convo.providerLastReadAt = now;
+} else {
+  convo.customerLastReadAt = now;
+}
+
+await convo.save();
 
 // 🔥 REALTIME READ RECEIPT EMIT
 try {
