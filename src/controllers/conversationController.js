@@ -387,23 +387,24 @@ const unread = !!last && last > read && !mine;
         };
       }
 
-      return {
-        _id: c._id,
+     return {
+  _id: c._id,
+  providerId: c.providerId?._id || c.providerId,
+  customerId: c.customerId?._id || c.customerId,
+  serviceId: c.serviceId?._id || null,
 
-        providerId: c.providerId?._id || c.providerId,
-        customerId: c.customerId?._id || c.customerId,
-        serviceId: c.serviceId?._id || null,
+  serviceTitle: c.serviceId?.title || null,
+  serviceThumbnail: c.serviceId?.photos?.[0] || null,
 
-        serviceTitle: c.serviceId?.title || null,
-        serviceThumbnail: c.serviceId?.photos?.[0] || null,
+  customer,
+  provider,
 
-        customer,
-        provider,
+  lastMessageText: c.lastMessageText || "",
+  lastMessageSenderId: c.lastMessageSenderId || null, // 🔥 ADD THIS
 
-        lastMessageText: c.lastMessageText || "",
-        unread,
-        updatedAt: c.updatedAt,
-      };
+  unread,
+  updatedAt: c.updatedAt,
+};
     });
 
     return res.json({ success: true, conversations: mapped });

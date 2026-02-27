@@ -296,6 +296,16 @@ convo.lastMessageText = isImage
 // 🔥 CRITICAL FIX — forces it into Messages list
 convo.updatedAt = now;
 
+// 🔥 FIX UNREAD LOGIC BASED ON SENDER ID
+if (String(convo.providerId) === String(sender.senderId)) {
+  // Sender is provider
+  convo.providerLastReadAt = now;      // Sender = read
+  convo.customerLastReadAt = null;     // Receiver = unread
+} else {
+  // Sender is customer
+  convo.customerLastReadAt = now;      // Sender = read
+  convo.providerLastReadAt = null;     // Receiver = unread
+}
 
 await convo.save();
 
@@ -387,7 +397,18 @@ convo.lastMessageSenderRole = sender.role;
 convo.lastMessageSenderId = sender.senderId; // 🔥 ADD THIS LINE
 convo.lastMessageText = text.trim().slice(0, 200);
 convo.updatedAt = now;
+
+// 🔥 FIX UNREAD FOR FIRST MESSAGE
+if (String(convo.providerId) === String(sender.senderId)) {
+  convo.providerLastReadAt = now;
+  convo.customerLastReadAt = null;
+} else {
+  convo.customerLastReadAt = now;
+  convo.providerLastReadAt = null;
+}
+
     await convo.save();
+
 
     try {
       const io = getIO();
