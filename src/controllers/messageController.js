@@ -324,11 +324,17 @@ try {
   console.log("💬 Conversation:", conversationRoom);
 
   // Emit to BOTH users (for Messages screen)
-  io.to(providerUserId).emit("newMessage", msg);
-  io.to(customerUserId).emit("newMessage", msg);
+  // 🔥 Emit to provider room
+io.to(providerUserId).emit("newMessage", msg);
 
-  // Emit to conversation (for ChatDetail screen)
-  io.to(conversationRoom).emit("newMessage", msg);
+// 🔥 Emit to customerId room
+io.to(customerUserId).emit("newMessage", msg);
+
+// 🔥 ALSO emit to customer Mongo _id room (covers edge case)
+io.to(String(msg.customerId)).emit("newMessage", msg);
+
+// 🔥 Emit to conversation room (for ChatDetail screen)
+io.to(conversationRoom).emit("newMessage", msg);
 
 } catch (err) {
   console.log("Socket emit failed:", err.message);
@@ -440,12 +446,17 @@ if (String(convo.providerId) === String(sender.senderId)) {
   console.log("💬 Conversation:", conversationRoom);
 
   // Emit to BOTH users
-  io.to(providerUserId).emit("newMessage", msg);
-  io.to(customerUserId).emit("newMessage", msg);
+  // 🔥 Emit to provider room
+io.to(providerUserId).emit("newMessage", msg);
 
-  // Emit to conversation
-  io.to(conversationRoom).emit("newMessage", msg);
+// 🔥 Emit to customerId room
+io.to(customerUserId).emit("newMessage", msg);
 
+// 🔥 ALSO emit to customer Mongo _id room (CRITICAL FIX)
+io.to(String(msg.customerId)).emit("newMessage", msg);
+
+// 🔥 Emit to conversation room (for ChatDetail screen)
+io.to(conversationRoom).emit("newMessage", msg);
 } catch (err) {
   console.log("Socket emit failed:", err.message);
 }
