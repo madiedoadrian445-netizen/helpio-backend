@@ -310,9 +310,26 @@ if (String(convo.providerId) === String(sender.senderId)) {
 await convo.save();
 
 /* 🔴 REAL-TIME EMIT — sends message instantly to both users */
+/* 🔴 REAL-TIME EMIT — sends message instantly to both users */
 try {
   const io = getIO();
-  io.to(String(convo._id)).emit("newMessage", msg);
+
+  const providerUserId = String(convo.providerId);
+  const customerUserId = String(convo.customerId);
+  const conversationRoom = String(convo._id);
+
+  console.log("📡 Emitting newMessage to:");
+  console.log("👤 Provider:", providerUserId);
+  console.log("👤 Customer:", customerUserId);
+  console.log("💬 Conversation:", conversationRoom);
+
+  // Emit to BOTH users (for Messages screen)
+  io.to(providerUserId).emit("newMessage", msg);
+  io.to(customerUserId).emit("newMessage", msg);
+
+  // Emit to conversation (for ChatDetail screen)
+  io.to(conversationRoom).emit("newMessage", msg);
+
 } catch (err) {
   console.log("Socket emit failed:", err.message);
 }
@@ -411,9 +428,27 @@ if (String(convo.providerId) === String(sender.senderId)) {
 
 
     try {
-      const io = getIO();
-      io.to(String(convo._id)).emit("newMessage", msg);
-    } catch {}
+  const io = getIO();
+
+  const providerUserId = String(convo.providerId);
+  const customerUserId = String(convo.customerId);
+  const conversationRoom = String(convo._id);
+
+  console.log("📡 Emitting newMessage to:");
+  console.log("👤 Provider:", providerUserId);
+  console.log("👤 Customer:", customerUserId);
+  console.log("💬 Conversation:", conversationRoom);
+
+  // Emit to BOTH users
+  io.to(providerUserId).emit("newMessage", msg);
+  io.to(customerUserId).emit("newMessage", msg);
+
+  // Emit to conversation
+  io.to(conversationRoom).emit("newMessage", msg);
+
+} catch (err) {
+  console.log("Socket emit failed:", err.message);
+}
 
     return res.status(201).json({
       success: true,
