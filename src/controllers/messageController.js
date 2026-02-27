@@ -278,15 +278,16 @@ if (!sender) {
   readAt: null,
 });
 
-
-   convo.lastMessageAt = now;
+convo.lastMessageAt = now;
 convo.lastMessageSenderRole = sender.role;
+convo.lastMessageSenderId = sender.senderId; // 🔥 REQUIRED FIX
 convo.lastMessageText = isImage
   ? `📷 Photo${imageUrls.length > 1 ? "s" : ""}`
   : cleanText.slice(0, 200);
 
 // 🔥 CRITICAL FIX — forces it into Messages list
 convo.updatedAt = now;
+
 
 await convo.save();
 
@@ -373,11 +374,11 @@ const convo = await Conversation.findOneAndUpdate(
       readAt: null,
     });
 
-    convo.lastMessageAt = now;
-    convo.lastMessageSenderRole = sender.role;
-    convo.lastMessageText = text.trim().slice(0, 200);
-    convo.updatedAt = now;
-
+   convo.lastMessageAt = now;
+convo.lastMessageSenderRole = sender.role;
+convo.lastMessageSenderId = sender.senderId; // 🔥 ADD THIS LINE
+convo.lastMessageText = text.trim().slice(0, 200);
+convo.updatedAt = now;
     await convo.save();
 
     try {
