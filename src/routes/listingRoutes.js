@@ -3,7 +3,7 @@ import express from "express";
 import { protect } from "../middleware/auth.js";
 import { validateObjectId } from "../middleware/validateObjectId.js";
 import { fraudCheck } from "../middleware/fraudCheck.js";
-
+import Listing from "../models/Listing.js";
 import {
   createListing,
   updateListing,
@@ -24,6 +24,40 @@ const router = express.Router();
 // ⭐ FEED (must be BEFORE /:id)
 router.get("/feed", protect, getFeed);
 
+
+//GET my listings (provider only)
+router.get(
+  "/provider/mine",
+  protect,
+  async (req, res) => {
+    try {
+      if (!req.user?.providerId) {
+        return res.status(403).json({
+          success: false,
+          message: "Provider access required.",
+        });
+      }
+
+      const listings = await Listing.find({
+        provider: req.user.providerId,
+      })
+        .sort({ updatedAt: -1 })
+        .lean();
+
+      return res.json({
+        success: true,
+        listings,
+      });
+    } catch (err) {
+      console.log("❌ getMyListings error:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Server error.",
+      });
+    }
+  }
+);
+
 // 1️⃣ GET all listings (with pagination + filters)
 router.get("/", getAllListings);
 
@@ -32,6 +66,8 @@ router.get("/category/:cat", getListingsByCategory);
 
 // 3️⃣ GET listing by ID
 router.get("/:id", validateObjectId("id"), getListingById);
+
+
 
 /* ============================================================
    PROVIDER ROUTES — AUTH + FRAUD CHECK REQUIRED
@@ -44,6 +80,9 @@ router.post(
   fraudCheck({ sourceType: "listing_create" }),
   createListing
 );
+
+
+
 
 // 5️⃣ UPDATE listing
 router.put(
