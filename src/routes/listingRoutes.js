@@ -58,13 +58,39 @@ router.get(
   }
 );
 
-// 1️⃣ GET all listings (with pagination + filters)
-router.get("/", getAllListings);
+// GET public listings by provider
+router.get("/provider/:providerId", async (req, res) => {
+  try {
+    const { providerId } = req.params;
 
-// 2️⃣ GET listings by category
+    const listings = await Listing.find({
+      provider: providerId,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+console.log("🔎 Listings found:", listings.length);
+
+    return res.json({
+      success: true,
+      listings,
+    });
+  } catch (err) {
+    console.log("❌ getProviderListings error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error.",
+    });
+  }
+});
+
+//  GET listings by category
 router.get("/category/:cat", getListingsByCategory);
 
-// 3️⃣ GET listing by ID
+//  GET all listings (with pagination + filters)
+router.get("/", getAllListings);
+
+// GET listing by ID
 router.get("/:id", validateObjectId("id"), getListingById);
 
 
