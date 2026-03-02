@@ -17,6 +17,9 @@ const userSchema = new Schema(
       maxlength: [120, "Name cannot exceed 120 characters"],
     },
 
+
+
+    
     email: {
       type: String,
       required: [true, "Email is required"],
@@ -53,6 +56,12 @@ const userSchema = new Schema(
       default: false,
       index: true,
     },
+
+avatar: {
+  type: String,
+  default: null,
+},
+
 
     refreshToken: {
       type: String,
