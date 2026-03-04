@@ -39,10 +39,11 @@ const ReviewSchema = new mongoose.Schema(
       required: true,
     },
 
-    comment: {
-      type: String,
-      required: true,
-    },
+   comment: {
+  type: String,
+  default: "",
+  trim: true,
+},
 
     imageUrl: {
       type: String,
