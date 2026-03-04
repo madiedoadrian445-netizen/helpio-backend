@@ -1,9 +1,8 @@
-const Review = require("../models/Review");
-const Listing = require("../models/Listing");
-const Conversation = require("../models/Conversation");
-const Message = require("../models/Message");
-
-exports.addReview = async (req, res, next) => {
+import Review from "../models/Review.js";
+import Listing from "../models/Listing.js";
+import Conversation from "../models/Conversation.js";
+import Message from "../models/Message.js";
+export const addReview = async (req, res, next) => {
   try {
     const {
       serviceId,
@@ -154,7 +153,7 @@ if (!listing) {
   }
 };
 
-exports.listForService = async (req, res, next) => {
+export const listForService = async (req, res, next) => {
   try {
     const reviews = await Review.find({
       service: req.params.serviceId,
@@ -174,7 +173,7 @@ exports.listForService = async (req, res, next) => {
   }
 };
 
-exports.removeReview = async (req, res, next) => {
+export const removeReview = async (req, res, next) => {
   try {
     const review = await Review.findById(req.params.id);
 
