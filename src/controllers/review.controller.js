@@ -13,7 +13,7 @@ export const addReview = async (req, res, next) => {
       imageUrl
     } = req.body;
 
-    const userId = req.user.id;
+  const userId = req.user._id;
 
     if (!serviceId || !providerId || !conversationId || !rating) {
       return res.status(400).json({
@@ -21,6 +21,16 @@ export const addReview = async (req, res, next) => {
         message: "Missing required fields"
       });
     }
+
+// 🔒 Prevent reviewing your own listing
+if (String(providerId) === String(req.user.providerId)) {
+  return res.status(403).json({
+    success: false,
+    message: "You cannot review your own listing"
+  });
+}
+
+
 // 🔒 Validate rating range
 if (rating < 1 || rating > 5) {
   return res.status(400).json({
@@ -39,8 +49,12 @@ if (rating < 1 || rating > 5) {
     }
 
    
-// 🔒 Ensure the user is the customer in this conversation
-if (String(convo.customerId) !== String(userId)) {
+// 🔒 Ensure the user participated in the conversation
+
+const isCustomer = String(convo.customerId) === String(userId);
+const isProvider = String(convo.providerId) === String(req.user.providerId);
+
+if (!isCustomer && !isProvider) {
   return res.status(403).json({
     success: false,
     message: "Unauthorized"
@@ -64,6 +78,9 @@ const providerMessages = await Message.exists({
     message: "Both parties must communicate before leaving a review."
   });
 }
+
+
+
 
     // 🔒 Prevent duplicate review
     const existing = await Review.findOne({
@@ -184,7 +201,7 @@ export const removeReview = async (req, res, next) => {
       });
     }
 
-    const isAuthor = String(review.user) === String(req.user.id);
+  const isAuthor = String(review.user) === String(req.user._id);
     const isAdmin = req.user.role === "admin";
 
     if (!isAuthor && !isAdmin) {
