@@ -2,17 +2,17 @@
 
 import express from "express";
 import * as ctl from "../controllers/review.controller.js";
-import { auth } from "../middleware/auth.js";
+import auth from "../middleware/auth.js";
 
 const router = express.Router();
 
-// POST   /api/reviews (user)
+// POST review
 router.post("/", auth(true), ctl.addReview);
 
-// GET    /api/reviews/:serviceId (public)
+// GET reviews
 router.get("/:serviceId", ctl.listForService);
 
-// DELETE /api/reviews/:id (owner)
+// DELETE review
 router.delete("/:id", auth(true), ctl.removeReview);
 
 export default router;
