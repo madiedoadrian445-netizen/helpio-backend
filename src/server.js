@@ -35,7 +35,7 @@ import { fileURLToPath } from "url";
 import http from "http";
 import { initSocket } from "./socket.js";
 import searchRoutes from "./routes/searchRoutes.js";
-
+import reviewRoutes from "./routes/review.routes.js";
 process.on("unhandledRejection", (reason) => {
   console.log("💥 UNHANDLED REJECTION:");
   console.log(reason);
@@ -392,7 +392,7 @@ app.use("/api/admin/fraud", adminFraudRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/api/admin/auth-security", adminAuthSecurityRoutes);
 app.use("/api/admin/suspicious", adminSuspiciousRoutes);
-
+app.use("/api/reviews", reviewRoutes);
 // Real terminal payments (future Stripe Terminal)
 app.use("/api/terminal-payments", terminalPaymentRoutes);
 
