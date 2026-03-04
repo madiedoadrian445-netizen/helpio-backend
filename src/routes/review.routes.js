@@ -1,15 +1,18 @@
 // src/routes/review.routes.js
-const router = require('express').Router();
-const ctl = require('../controllers/review.controller');
-const { auth } = require('../middleware/auth');
 
-// POST   /api/reviews            (user)
-router.post('/', auth(true), ctl.addReview);
+import express from "express";
+import * as ctl from "../controllers/review.controller.js";
+import { auth } from "../middleware/auth.js";
+
+const router = express.Router();
+
+// POST   /api/reviews (user)
+router.post("/", auth(true), ctl.addReview);
 
 // GET    /api/reviews/:serviceId (public)
-router.get('/:serviceId', ctl.listForService);
+router.get("/:serviceId", ctl.listForService);
 
-// DELETE /api/reviews/:id        (owner)
-router.delete('/:id', auth(true), ctl.removeReview);
+// DELETE /api/reviews/:id (owner)
+router.delete("/:id", auth(true), ctl.removeReview);
 
-module.exports = router;
+export default router;
