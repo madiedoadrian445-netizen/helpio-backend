@@ -1,5 +1,5 @@
 // src/models/Review.js
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const ReviewSchema = new mongoose.Schema(
   {
@@ -57,6 +57,9 @@ const ReviewSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
 ReviewSchema.index({ service: 1, createdAt: -1 });
 
-module.exports = mongoose.model("Review", ReviewSchema);
+const Review = mongoose.model("Review", ReviewSchema);
+
+export default Review;
