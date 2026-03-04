@@ -82,6 +82,37 @@ businessName: {
       },
     },
 
+
+/* -----------------------------------------------------
+   REVIEWS / RATINGS
+------------------------------------------------------ */
+rating: {
+  type: Number,
+  default: 0,
+},
+
+ratingCount: {
+  type: Number,
+  default: 0,
+},
+
+ratingSum: {
+  type: Number,
+  default: 0,
+},
+
+ratingBreakdown: {
+  type: Object,
+  default: {
+    1: 0,
+    2: 0,
+    3: 0,
+    4: 0,
+    5: 0,
+  },
+},
+
+
     /* -----------------------------------------------------
        LOCATION (Safe defaults)
     ------------------------------------------------------ */
