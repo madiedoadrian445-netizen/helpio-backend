@@ -261,17 +261,19 @@ const pipeline = [
     },
   },
  {
-  $project: {
-    _id: 1,
-    provider: { $toString: "$provider" },   // ✅ force string
-    businessName: 1,
-    title: 1,
-    category: 1,
-    photos: "$images",
-    price: 1,
-    location: "$location",
-    distanceMiles: 1,
-  },
+ $project: {
+  _id: 1,
+  provider: { $toString: "$provider" },
+  businessName: 1,
+  title: 1,
+  category: 1,
+  photos: "$images",
+  price: 1,
+  location: "$location",
+  distanceMiles: 1,
+  rating: 1,
+  ratingCount: 1
+}
 },
   { $limit: 2000 },
 ];
