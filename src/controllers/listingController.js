@@ -217,9 +217,9 @@ export const getAllListings = async (req, res) => {
    select: "_id businessName phone isVerified rating"
 
   })
-  .select(
-    "title description price category images location businessName provider createdAt"
-  )
+ .select(
+"title description price category images location businessName provider createdAt rating ratingCount"
+)
   .sort({ createdAt: sortOrder })
   .skip((pageNum - 1) * limitNum)
   .limit(limitNum)
@@ -280,7 +280,7 @@ export const getNearbyListings = async (req, res) => {
     path: "provider",
     select: "_id businessName phone isVerified rating",
   })
-  .select("title description price category images location businessName provider createdAt")
+ .select("title description price category images location businessName provider createdAt rating ratingCount")
   .limit(parsePositiveInt(limit, 20, 100))
   .lean();
 
@@ -307,8 +307,8 @@ export const getListingById = async (req, res) => {
 
   const listing = await Listing.findById(id)
   .populate("provider", "_id businessName phone isVerified rating")
-  .select(
-    "title description price category images location businessName provider createdAt"
+ .select(
+"title description price category images location businessName provider createdAt rating ratingCount"
   )
   .lean();
 
@@ -339,7 +339,7 @@ export const getListingsByCategory = async (req, res) => {
   isActive: true,
 })
   .populate("provider", "_id businessName phone isVerified rating")
-  .select("title description price category images location businessName provider createdAt")
+ .select("title description price category images location businessName provider createdAt rating ratingCount")
   .lean();
 
 
