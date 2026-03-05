@@ -220,6 +220,18 @@ export const checkReviewEligibility = async (req, res) => {
       });
     }
 
+    // 🔒 verify customer actually sent a message
+    const customerMessage = await Message.exists({
+      conversationId: convo._id,
+      senderRole: "customer"
+    });
+
+    if (!customerMessage) {
+      return res.json({
+        eligible: false
+      });
+    }
+
     return res.json({
       eligible: true,
       conversationId: convo._id
