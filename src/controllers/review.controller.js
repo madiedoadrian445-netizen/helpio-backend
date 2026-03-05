@@ -91,18 +91,7 @@ if (!customerMessage) {
     }
 // 🛡 Prevent review bombing (1 review per provider per 24h)
 
-const recentReview = await Review.findOne({
-  user: userId,
-  provider: providerId,
-  createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
-});
 
-if (recentReview) {
-  return res.status(400).json({
-    success: false,
-    message: "You already reviewed this provider recently."
-  });
-}
 
 // ⭐ Enforce rating rules
 
