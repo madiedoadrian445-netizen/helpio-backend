@@ -210,7 +210,7 @@ export const checkReviewEligibility = async (req, res) => {
     const userId = req.user._id;
 
     const convo = await Conversation.findOne({
-      service: serviceId,
+      serviceId: serviceId,
       customerId: userId
     });
 
@@ -220,7 +220,6 @@ export const checkReviewEligibility = async (req, res) => {
       });
     }
 
-    // 🔒 verify customer actually sent a message
     const customerMessage = await Message.exists({
       conversationId: convo._id,
       senderRole: "customer"
