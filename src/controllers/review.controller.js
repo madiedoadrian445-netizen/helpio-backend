@@ -203,3 +203,33 @@ export const removeReview = async (req, res, next) => {
     next(err);
   }
 };
+
+export const checkReviewEligibility = async (req, res) => {
+  try {
+    const { serviceId } = req.params;
+    const userId = req.user._id;
+
+    const convo = await Conversation.findOne({
+      service: serviceId,
+      customerId: userId
+    });
+
+    if (!convo) {
+      return res.json({
+        eligible: false
+      });
+    }
+
+    return res.json({
+      eligible: true,
+      conversationId: convo._id
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to check review eligibility"
+    });
+  }
+};
