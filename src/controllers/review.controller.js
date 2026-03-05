@@ -52,30 +52,25 @@ if (rating < 1 || rating > 5) {
 // 🔒 Ensure the user participated in the conversation
 
 const isCustomer = String(convo.customerId) === String(userId);
-const isProvider = String(convo.providerId) === String(req.user.providerId);
 
-if (!isCustomer && !isProvider) {
+
+if (!isCustomer) {
   return res.status(403).json({
     success: false,
     message: "Unauthorized"
   });
 }
+// 🔒 Ensure the customer initiated the conversation
 
-    // 🔒 Ensure both sides have messaged
-    const customerMessages = await Message.exists({
+const customerMessage = await Message.exists({
   conversationId,
   senderRole: "customer"
 });
 
-const providerMessages = await Message.exists({
-  conversationId,
-  senderRole: "provider"
-});
-
-   if (!customerMessages || !providerMessages) {
+if (!customerMessage) {
   return res.status(400).json({
     success: false,
-    message: "Both parties must communicate before leaving a review."
+    message: "You must contact the provider before leaving a review."
   });
 }
 
@@ -149,9 +144,8 @@ if (!listing) {
     message: "Listing not found"
   });
 }
-
-    listing.ratingCount += 1;
-    listing.ratingSum += rating;
+listing.ratingCount = (listing.ratingCount || 0) + 1;
+listing.ratingSum = (listing.ratingSum || 0) + rating;
    listing.rating =
   Math.round((listing.ratingSum / listing.ratingCount) * 10) / 10;
 
