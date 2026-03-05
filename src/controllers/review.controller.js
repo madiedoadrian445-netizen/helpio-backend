@@ -51,10 +51,11 @@ if (rating < 1 || rating > 5) {
    
 // 🔒 Ensure the user participated in the conversation
 
-const isCustomer = String(convo.customerId) === String(userId);
+const isParticipant =
+  String(convo.customerId) === String(userId) ||
+  String(convo.customerId) === String(req.user.providerId);
 
-
-if (!isCustomer) {
+if (!isParticipant) {
   return res.status(403).json({
     success: false,
     message: "Unauthorized"
@@ -62,12 +63,12 @@ if (!isCustomer) {
 }
 // 🔒 Ensure the customer initiated the conversation
 
-const customerMessage = await Message.exists({
-  conversationId,
-  senderRole: "customer"
+// 🔒 Ensure a message exists in the conversation
+const messageExists = await Message.exists({
+  conversationId
 });
 
-if (!customerMessage) {
+if (!messageExists) {
   return res.status(400).json({
     success: false,
     message: "You must contact the provider before leaving a review."
@@ -210,26 +211,24 @@ export const checkReviewEligibility = async (req, res) => {
     const userId = req.user._id;
 
     const convo = await Conversation.findOne({
-      serviceId: serviceId,
-      customerId: userId
-    });
-
+  serviceId: serviceId,
+  customerId: { $in: [userId, req.user.providerId] }
+});
     if (!convo) {
       return res.json({
         eligible: false
       });
     }
 
-    const customerMessage = await Message.exists({
-      conversationId: convo._id,
-      senderRole: "customer"
-    });
+   const messageExists = await Message.exists({
+  conversationId: convo._id
+});
 
-    if (!customerMessage) {
-      return res.json({
-        eligible: false
-      });
-    }
+if (!messageExists) {
+  return res.json({
+    eligible: false
+  });
+}
 
     return res.json({
       eligible: true,
