@@ -144,6 +144,14 @@ const providerSchema = new Schema(
     isSuspended: { type: Boolean, default: false, index: true },
 
 
+
+stripe_account_id: {
+  type: String,
+  default: null,
+  index: true
+},
+
+
 // --- Simulation / Dev Seeding Flags ---
 simSeeded: {
   type: Boolean,
