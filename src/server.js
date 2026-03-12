@@ -91,6 +91,8 @@ import adminTaxRoutes from "./routes/adminTaxRoutes.js";
 import adminProviderFinancialRoutes from "./routes/adminProviderFinancialRoutes.js";
 import feedRoutes from "./routes/feedRoutes.js";
 import stripeBalanceRoutes from "./routes/stripeBalanceRoutes.js";
+import stripePayoutRoutes from "./routes/stripePayoutRoutes.js";
+
 
 /* ⭐ NEW — Admin Ledger Audit Routes */
 import adminLedgerRoutes from "./routes/adminLedgerRoutes.js";
@@ -411,6 +413,9 @@ app.use("/api/terminal-payments", terminalPaymentRoutes);
 
 app.use("/api/stripe", stripeConnectRoutes);
 app.use("/api/stripe", stripeBalanceRoutes);
+app.use("/api/stripe", stripePayoutRoutes);
+
+
 
 // Expo-friendly simulated Tap-to-Pay
 app.use("/api/terminal-payments-sim", terminalPaymentSimRoutes);
