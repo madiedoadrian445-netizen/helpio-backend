@@ -36,6 +36,7 @@ import http from "http";
 import { initSocket } from "./socket.js";
 import searchRoutes from "./routes/searchRoutes.js";
 import reviewRoutes from "./routes/review.routes.js";
+import stripeConnectRoutes from "./routes/stripeConnectRoutes.js";
 process.on("unhandledRejection", (reason) => {
   console.log("💥 UNHANDLED REJECTION:");
   console.log(reason);
@@ -120,6 +121,12 @@ app.disable("x-powered-by");
 ---------------------------------------------------------- */
 // Trust ONLY the first proxy (Render / CF)
 app.set("trust proxy", 1);
+
+
+
+
+
+
 
 
 /* ---------------------------------------------------------
@@ -238,6 +245,11 @@ app.use(
 if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
 }
+
+
+
+
+
 
 /* -------------------- CORS -------------------- */
 const allowedOrigins = [
@@ -395,6 +407,9 @@ app.use("/api/admin/suspicious", adminSuspiciousRoutes);
 app.use("/api/reviews", reviewRoutes);
 // Real terminal payments (future Stripe Terminal)
 app.use("/api/terminal-payments", terminalPaymentRoutes);
+
+
+app.use("/api/stripe", stripeConnectRoutes);
 
 
 // Expo-friendly simulated Tap-to-Pay
