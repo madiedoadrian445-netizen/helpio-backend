@@ -1,5 +1,5 @@
 import { stripeClient, isSimulatedStripe } from "../config/stripe.js";
-import Provider from "../models/providerModel.js";
+import Provider from "../models/Provider.js";
 
 export const createConnectedAccount = async (req, res) => {
   try {
