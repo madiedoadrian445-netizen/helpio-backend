@@ -407,7 +407,7 @@ export const captureTerminalPayment = async (req, res) => {
       // LEDGER ENTRY
       const ledgerResult = await recordTerminalChargeLedger({
         providerId: provider._id,
-        customerId: payment.customer?._id || null,
+      customerId: payment.customer ? payment.customer._id : null,
         terminalPaymentId: payment._id,
         grossAmountCents: payment.amountCapturedCents,
         trigger: "terminal_payment_simulated",
@@ -418,9 +418,9 @@ export const captureTerminalPayment = async (req, res) => {
 
       const amountDollars = payment.amountCapturedCents / 100;
 
-     await logCustomerTimelineEvent({
+    await logCustomerTimelineEvent({
   providerId: provider._id,
-  customerId: payment.customer?._id,
+  customerId: payment.customer ? payment.customer._id : null,
   type: "payment",
   title: "Terminal Payment Captured",
   description: `Charged $${amountDollars.toFixed(
@@ -481,7 +481,7 @@ export const captureTerminalPayment = async (req, res) => {
 
     const ledgerResult = await recordTerminalChargeLedger({
       providerId: provider._id,
-      customerId: payment.customer?._id || null,
+    customerId: payment.customer ? payment.customer._id : null,
       terminalPaymentId: payment._id,
       stripePaymentIntentId: capturedPI.id,
       stripeChargeId: capturedPI.latest_charge,
@@ -496,7 +496,7 @@ export const captureTerminalPayment = async (req, res) => {
 
    await logCustomerTimelineEvent({
   providerId: provider._id,
-  customerId: payment.customer?._id,
+ customerId: payment.customer ? payment.customer._id : null,
   type: "payment",
   title: "Terminal Payment Captured",
   description: `Charged $${capturedDollars.toFixed(
