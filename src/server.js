@@ -92,7 +92,7 @@ import adminProviderFinancialRoutes from "./routes/adminProviderFinancialRoutes.
 import feedRoutes from "./routes/feedRoutes.js";
 import stripeBalanceRoutes from "./routes/stripeBalanceRoutes.js";
 import stripePayoutRoutes from "./routes/stripePayoutRoutes.js";
-
+import analyticsRoutes from "./routes/analyticsRoutes.js";
 
 /* ⭐ NEW — Admin Ledger Audit Routes */
 import adminLedgerRoutes from "./routes/adminLedgerRoutes.js";
@@ -424,7 +424,7 @@ app.use("/api/terminal-payments-sim", terminalPaymentSimRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/services", serviceRoutes);
-
+app.use("/api/analytics", analyticsRoutes);
 
 
 

@@ -640,8 +640,10 @@ export const getMyTerminalPayments = async (req, res) => {
 
     const { page, limit, skip } = parsePagination(req.query);
 
-    const filter = { provider: provider._id };
-
+   const filter = {
+  provider: provider._id,
+  status: "captured"
+};
     // basic filters
     if (req.query.status) {
       filter.status = req.query.status;
