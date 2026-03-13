@@ -413,7 +413,7 @@ export const captureTerminalPayment = async (req, res) => {
         trigger: "terminal_payment_simulated",
       });
 
-      payment.ledgerEntry = ledgerResult.entry?._id || null;
+     payment.ledgerEntry = ledgerResult?.entry?._id || null;
       await payment.save();
 
       const amountDollars = payment.amountCapturedCents / 100;
@@ -431,7 +431,7 @@ export const captureTerminalPayment = async (req, res) => {
 
 
       await markIdempotencyKeyCompleted(idemId, {
-        ledgerEntryId: ledgerResult.entry?._id || null,
+       ledgerEntryId: ledgerResult?.entry?._id || null,
         extraContext: {
           mode: "simulated",
           terminalPaymentId: payment._id.toString(),
@@ -443,7 +443,7 @@ export const captureTerminalPayment = async (req, res) => {
         mode: "simulated",
         captured: true,
         payment,
-        ledgerEntry: ledgerResult.entry || null,
+       ledgerEntry: ledgerResult?.entry || null,
       });
     }
 
@@ -489,7 +489,7 @@ export const captureTerminalPayment = async (req, res) => {
       trigger: "terminal_payment_live",
     });
 
-    payment.ledgerEntry = ledgerResult.entry?._id || null;
+   payment.ledgerEntry = ledgerResult?.entry?._id || null;
     await payment.save();
 
     const capturedDollars = capturedPI.amount_received / 100;
@@ -509,7 +509,7 @@ export const captureTerminalPayment = async (req, res) => {
     await markIdempotencyKeyCompleted(idemId, {
       stripePaymentIntentId: capturedPI.id,
       stripeChargeId: capturedPI.latest_charge,
-      ledgerEntryId: ledgerResult.entry?._id || null,
+      ledgerEntryId: ledgerResult?.entry?._id || null,
       extraContext: {
         mode: "live",
         terminalPaymentId: payment._id.toString(),
@@ -521,7 +521,7 @@ export const captureTerminalPayment = async (req, res) => {
       mode: "live",
       captured: true,
       payment,
-      ledgerEntry: ledgerResult.entry || null,
+      ledgerEntry: ledgerResult?.entry || null,
     });
   } catch (err) {
     console.error("❌ captureTerminalPayment error:", err);
