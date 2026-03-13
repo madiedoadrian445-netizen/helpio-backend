@@ -65,40 +65,34 @@ export const reserveIdempotencyKey = async ({
      If new:
        → create reserved key record
   ----------------------------------------------------------------------- */
-  const result = await IdempotencyKey.findOneAndUpdate(
-    { key, type },
-    {
-      $setOnInsert: {
-        key,
-        type,
-        amount,
-        currency,
+// Check if key already exists
+let record = await IdempotencyKey.findOne({ key, type });
 
-        subscriptionId: subscriptionId || undefined,
-        invoiceId: invoiceId || undefined,
-        providerId: providerId || undefined,
-        customerId: customerId || undefined,
-        terminalPaymentId: terminalPaymentId || undefined,
+const wasExisting = !!record;
 
-        requestHash,
-        initiatedBy,
-        status: "in_progress",
+if (!record) {
+  record = await IdempotencyKey.create({
+    key,
+    type,
+    amount,
+    currency,
 
-        context: {
-          ...extraContext,
-          createdAt: new Date().toISOString(),
-        },
-      },
+    subscriptionId: subscriptionId || undefined,
+    invoiceId: invoiceId || undefined,
+    providerId: providerId || undefined,
+    customerId: customerId || undefined,
+    terminalPaymentId: terminalPaymentId || undefined,
+
+    requestHash,
+    initiatedBy,
+    status: "in_progress",
+
+    context: {
+      ...extraContext,
+      createdAt: new Date().toISOString(),
     },
-    {
-      upsert: true,
-      new: true,
-      rawResult: true,
-    }
-  );
-
-  const record = result.value;
-  const wasExisting = result.lastErrorObject?.updatedExisting;
+  });
+}
 
   /* =====================================================================
        EXISTING KEY → VALIDATE STATE
