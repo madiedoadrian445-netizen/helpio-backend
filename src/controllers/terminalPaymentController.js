@@ -273,34 +273,52 @@ export const authorizeTerminalPayment = async (req, res) => {
       });
     }
 
-    // LIVE STRIPE TERMINAL — create PI
-    const pi = await stripeClient.paymentIntents.create({
-      amount: payment.amountGross,
-      currency: payment.currency,
-      payment_method_types: ["card_present"],
-      metadata: {
-        brand: "Helpio Pay",
-        type: "helpio_terminal",
-        sessionId,
-        providerId: payment.provider.toString(),
-        terminalPaymentId: payment._id.toString(),
-      },
-      capture_method: "manual",
-    });
+  // LIVE STRIPE TERMINAL — create PI
+const pi = await stripeClient.paymentIntents.create({
+  amount: payment.amountGross,
+  currency: payment.currency,
+  capture_method: "manual",
+  payment_method_types: ["card"],
+  setup_future_usage: "off_session",
+  metadata: {
+    brand: "Helpio Pay",
+    type: "helpio_terminal",
+    sessionId,
+    providerId: payment.provider.toString(),
+    terminalPaymentId: payment._id.toString(),
+  },
+});
 
-    payment.paymentIntentId = pi.id;
-    payment.amountAuthorizedCents = payment.amountGross;
-    payment.status = "authorized";
-    payment.authorizedAt = new Date();
-    payment.mode = "live";
-    await payment.save();
+const confirmed = await stripeClient.paymentIntents.confirm(
+  pi.id,
+  { payment_method: "pm_card_visa" },
+  { idempotencyKey: `confirm_${sessionId}` }
+);
 
-    return res.json({
-      success: true,
-      mode: "live",
-      authorized: true,
-      paymentIntent: pi.id,
-    });
+payment.paymentIntentId = confirmed.id;
+payment.amountAuthorizedCents = payment.amountGross;
+payment.mode = "live";
+
+if (confirmed.status === "requires_capture") {
+  payment.status = "authorized";
+  payment.authorizedAt = new Date();
+} else if (confirmed.status === "succeeded") {
+  payment.status = "captured";
+  payment.capturedAt = new Date();
+} else {
+  payment.status = "failed";
+  payment.failedAt = new Date();
+}
+
+await payment.save();
+
+return res.json({
+  success: true,
+  mode: "live",
+  authorized: confirmed.status === "requires_capture",
+  captured: confirmed.status === "succeeded",
+  paymentIntent: confirmed.id,
+});
   } catch (err) {
     console.error("❌ authorizeTerminalPayment error:", err);
     return res.status(500).json({
@@ -352,6 +370,16 @@ export const captureTerminalPayment = async (req, res) => {
         message: "Payment is not in an authorized state.",
       });
     }
+
+
+
+if (!payment.paymentIntentId) {
+  return res.status(400).json({
+    success: false,
+    message: "No payment intent found for this session.",
+  });
+}
+
 
     /* ---------------------------------------------------
        IDEMPOTENCY RESERVE
@@ -467,14 +495,17 @@ if (!idemId) {
         { idempotencyKey }
       );
     } catch (err) {
-      await markIdempotencyKeyFailed(idemId, {
-        extraContext: { error: err.message },
-      });
-      return res.status(500).json({
-        success: false,
-        message: "Capture failed at processor.",
-      });
-    }
+  console.error("❌ STRIPE CAPTURE ERROR:", err);
+
+  await markIdempotencyKeyFailed(idemId, {
+    extraContext: { error: err.message },
+  });
+
+  return res.status(500).json({
+    success: false,
+    message: err.message,
+  });
+}
 
     payment.amountCapturedCents = capturedPI.amount_received;
     payment.status = "captured";
