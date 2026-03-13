@@ -387,7 +387,16 @@ export const captureTerminalPayment = async (req, res) => {
         .json({ success: false, message: "Previous attempt failed" });
     }
 
-    const idemId = idem.record._id;
+  const idemId = idem?.record?._id;
+
+if (!idemId) {
+  console.error("❌ Invalid idempotency record:", idem);
+
+  return res.status(500).json({
+    success: false,
+    message: "Failed to initialize idempotency record.",
+  });
+}
 
     /* ---------------------------------------------------
        SIMULATED CAPTURE
