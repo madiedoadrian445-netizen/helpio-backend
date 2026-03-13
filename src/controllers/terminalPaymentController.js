@@ -358,11 +358,11 @@ export const captureTerminalPayment = async (req, res) => {
     ---------------------------------------------------- */
     let idem;
     try {
-      idem = await reserveIdempotencyKey({
-        key: idempotencyKey,
-        type: "terminal_capture",
-        amount: payment.amountGross, // already in cents
-        currency: payment.currency,
+    idem = await reserveIdempotencyKey({
+  key: idempotencyKey,
+  type: "terminal_charge",
+  amount: payment.amountGross,
+  currency: payment.currency,
         providerId: provider._id,
         terminalPaymentId: payment._id,
         payloadForHash: {
