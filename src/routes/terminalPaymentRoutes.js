@@ -3,6 +3,10 @@ import express from "express";
 import { protect, admin } from "../middleware/auth.js";
 
 import {
+  createTerminalSession,
+  authorizeTerminalPayment,
+  captureTerminalPayment,
+  cancelTerminalSession,
   getMyTerminalPayments,
   getTerminalPaymentById,
   adminListTerminalPayments,
@@ -11,11 +15,22 @@ import {
 
 const router = express.Router();
 
+
+
+/* -------------------------------------------------------
+   TERMINAL SESSION LIFECYCLE
+-------------------------------------------------------- */
+
+router.post("/create-session", protect, createTerminalSession);
+router.post("/authorize", protect, authorizeTerminalPayment);
+router.post("/capture", protect, captureTerminalPayment);
+router.post("/cancel", protect, cancelTerminalSession);
+
+
 /* -------------------------------------------------------
    ⭐ SIMULATED TAP-TO-PAY PAYMENT (Expo-safe)
-   Base: /api/terminal-payments/simulate
-   This MUST be before ":id" routes.
 -------------------------------------------------------- */
+
 router.post("/simulate", async (req, res) => {
   try {
     const { amount, currency } = req.body;
