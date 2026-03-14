@@ -21,7 +21,7 @@ import LedgerEntry from "../models/LedgerEntry.js";
 import Dispute from "../models/Dispute.js";
 import Payout from "../models/Payout.js";
 import ProviderBalance from "../models/ProviderBalance.js";
-
+import Provider from "../models/Provider.js";
 import {
   recordDisputeOpenedLedger,
   recordDisputeWonLedger,
@@ -106,6 +106,39 @@ const handlePaymentIntentFailed = async (event) => {
     last_error: pi.last_payment_error?.message,
   });
 };
+
+
+
+
+/* ============================================================
+   STRIPE IDENTITY VERIFICATION
+============================================================ */
+
+
+
+const handleIdentityVerificationSucceeded = async (event) => {
+  const session = event.data?.object || {};
+
+  console.log("🪪 identity.verification_session.verified:", session.id);
+
+  const providerId = session.metadata?.providerId;
+
+  if (!providerId) {
+    console.warn("⚠️ Identity session missing providerId metadata");
+    return;
+  }
+
+  await Provider.findByIdAndUpdate(providerId, {
+    identityVerified: true,
+    identityVerifiedAt: new Date(),
+    stripeIdentitySessionId: session.id,
+  });
+
+  console.log("✅ Provider verified:", providerId);
+};
+
+
+
 
 /* ============================================================
    REFUND HANDLER
@@ -542,6 +575,11 @@ export const stripeWebhookHandler = async (req, res) => {
       case "payout.canceled":
         await handlePayoutCanceled(event);
         break;
+
+
+case "identity.verification_session.verified":
+  await handleIdentityVerificationSucceeded(event);
+  break;
 
       default:
         console.log("ℹ️ Unhandled event:", event.type);
