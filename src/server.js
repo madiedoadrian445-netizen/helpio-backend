@@ -100,7 +100,7 @@ import adminLedgerRoutes from "./routes/adminLedgerRoutes.js";
 /* ⭐ NEW — FULL ADMIN CRON SUITE */
 import adminCronRoutes from "./routes/adminCronRoutes.js";
 
-
+import stripeIdentityRoutes from "./routes/stripeIdentityRoutes.js";
 
 /* ---------------------------------------------------------
    SIMULATED IMAGE HOSTING (DEV / SEED DATA)
@@ -414,7 +414,7 @@ app.use("/api/terminal-payments", terminalPaymentRoutes);
 app.use("/api/stripe", stripeConnectRoutes);
 app.use("/api/stripe", stripeBalanceRoutes);
 app.use("/api/stripe", stripePayoutRoutes);
-
+app.use("/api/stripe", stripeIdentityRoutes);
 
 
 // Expo-friendly simulated Tap-to-Pay
