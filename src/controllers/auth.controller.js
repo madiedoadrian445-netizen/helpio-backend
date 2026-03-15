@@ -7,7 +7,9 @@ import { recordDeviceFingerprint } from "../utils/deviceFingerprint.js";       /
 import { analyzeIpReputationAndVelocity } from "../utils/ipReputation.js";     // B22-C
 import { checkPasswordCompromised } from "../utils/compromisedPassword.js";    // ⭐ B22-E
 import { SuspiciousEvent } from "../models/SuspiciousEvent.js";               // B22-E logging
-
+import { PhoneVerification } from "../models/PhoneVerification.js";
+import generateVerificationCode from "../utils/generateCode.js";
+import twilioClient from "../utils/twilio.js";
 /* ----------------------- TOKEN HELPERS ----------------------- */
 
 const generateAccessToken = async (user) => {
@@ -37,29 +39,155 @@ const generateRefreshToken = (userId) => {
   });
 };
 
+
+
+export const sendPhoneCode = async (req, res, next) => {
+  try {
+ 
+ 
+    const rawPhone = req.body.phone;
+const phone = rawPhone?.trim().replace(/[^\d+]/g, "");
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number required",
+      });
+    }
+
+
+// Check existing verification
+const existing = await PhoneVerification.findOne({ phone });
+
+if (
+  existing &&
+  existing.createdAt &&
+  Date.now() - existing.createdAt.getTime() < 30000
+) {
+  return res.status(429).json({
+    success: false,
+    message: "Please wait before requesting another code",
+  });
+}
+
+
+
+
+
+const code = generateVerificationCode();
+
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    await PhoneVerification.findOneAndUpdate(
+      { phone },
+      {
+        phone,
+        code,
+        expiresAt,
+        verified: false,
+      },
+      { upsert: true }
+    );
+
+    await twilioClient.messages.create({
+      body: `Your Helpio verification code is: ${code}`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phone,
+    });
+
+    return res.json({
+      success: true,
+      message: "Verification code sent",
+    });
+
+  } catch (err) {
+    console.error("SEND PHONE CODE ERROR:", err);
+    next(err);
+  }
+};
+
+
+export const verifyPhoneCode = async (req, res, next) => {
+  try {
+   const rawPhone = req.body.phone;
+const code = req.body.code;
+const phone = rawPhone?.trim().replace(/[^\d+]/g, "");
+
+
+if (!phone || !code) {
+  return res.status(400).json({
+    success: false,
+    message: "Phone and verification code are required",
+  });
+}
+
+const record = await PhoneVerification.findOne({ phone });
+
+    if (!record) {
+      return res.status(400).json({
+        success: false,
+        message: "No verification request found",
+      });
+    }
+
+    if (record.code !== code) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid verification code",
+      });
+    }
+
+    if (record.expiresAt < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "Verification code expired",
+      });
+    }
+
+   record.verified = true;
+await record.save();
+
+return res.json({
+  success: true,
+  verified: true,
+});
+
+  } catch (err) {
+    console.error("VERIFY PHONE CODE ERROR:", err);
+    next(err);
+  }
+};
 /* -------------------------- REGISTER -------------------------- */
 
 export const register = async (req, res, next) => {
   try {
-   const { name, email, password } = req.body;
+    const { name, email, password } = req.body;
+
+    const trimmedName = name?.trim();
+    const normalizedEmail = email?.trim().toLowerCase();
 
 
-    if (!name || !email || !password) {
+
+
+
+    if (!trimmedName || !normalizedEmail || !password) {
       return res.status(400).json({
         success: false,
         message: "Name, email, and password are required",
       });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
-
     const existing = await User.findOne({ email: normalizedEmail });
+
     if (existing) {
       return res.status(409).json({
         success: false,
         message: "Email already in use",
       });
     }
+
+
+    
 
     /* ----------------------------------------------------------
        ⭐ B22-E — Compromised Password Detection
@@ -96,7 +224,7 @@ export const register = async (req, res, next) => {
 // ✅ Default role is CUSTOMER (not provider)
 // 🔒 Public register ALWAYS creates CUSTOMER
 const user = await User.create({
-  name,
+ name: trimmedName,
   email: normalizedEmail,
   password,
   role: "customer",
@@ -311,16 +439,32 @@ export const logout = async (req, res, next) => {
 
 export const registerProvider = async (req, res, next) => {
   try {
-    const { name, email, password, companyName } = req.body;
+   const { name, email, password, companyName, phone } = req.body;
 
-    if (!name || !email || !password || !companyName) {
+const nameTrimmed = name?.trim();
+const normalizedEmail = email?.trim().toLowerCase();
+const normalizedPhone = phone?.trim().replace(/[^\d+]/g, "");
+
+
+if (!nameTrimmed || !normalizedEmail || !password || !companyName || !normalizedPhone){
       return res.status(400).json({
         success: false,
         message: "Name, email, password, and company name are required",
       });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
+
+const verification = await PhoneVerification.findOne({ phone: normalizedPhone });
+
+if (!verification || verification.verified !== true) {
+  return res.status(403).json({
+    success: false,
+    message: "Phone number must be verified before creating a provider account",
+  });
+}
+
+await PhoneVerification.deleteOne({ phone: normalizedPhone });
+
 
     const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
@@ -361,14 +505,13 @@ export const registerProvider = async (req, res, next) => {
     }
 
     /* ---------- Create USER ---------- */
-    const user = await User.create({
-      name,
-      email: normalizedEmail,
-      password,
-      role: "provider",
-      isVerifiedProvider: false,
-    });
-
+  const user = await User.create({
+  name: nameTrimmed,
+  email: normalizedEmail,
+  password,
+  role: "provider",
+  isVerifiedProvider: false,
+});
     /* ---------- Create PROVIDER ---------- */
    const provider = await Provider.create({
   user: user._id,
