@@ -6,6 +6,9 @@ import {
   getMe,
   refreshToken,
   logout,
+  sendPhoneCode,
+  verifyPhoneCode,
+  registerProvider
 } from "../controllers/auth.controller.js";
 
 import { protect } from "../middleware/auth.js";
@@ -13,7 +16,7 @@ import { devLogin } from "../controllers/dev.controller.js";
 
 import { logAuthEvent } from "../utils/authLogger.js";
 import { authAttackPrecheck } from "../middleware/authAttackPrecheck.js";
-import { registerProvider } from "../controllers/auth.controller.js";
+
 
 
 
@@ -74,6 +77,13 @@ router.post("/register", async (req, res, next) => {
     next(err);
   }
 });
+
+/* ----------------------------------------------------------
+   PHONE VERIFICATION
+---------------------------------------------------------- */
+
+router.post("/send-phone-code", sendPhoneCode);
+router.post("/verify-phone-code", verifyPhoneCode);
 
 
 /* ----------------------------------------------------------
