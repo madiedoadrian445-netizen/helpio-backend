@@ -1,8 +1,8 @@
-const twilio = require("twilio");
+import twilio from "twilio";
 
-const client = twilio(
+const twilioClient = twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
 
-module.exports = client;
+export default twilioClient;
