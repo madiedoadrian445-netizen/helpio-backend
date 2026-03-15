@@ -130,12 +130,15 @@ const record = await PhoneVerification.findOne({ phone });
       });
     }
 
-    if (record.code !== code) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid verification code",
-      });
-    }
+    const isTestCode =
+  process.env.ALLOW_TEST_PHONE_CODE === "true" && code === "000000";
+
+if (!isTestCode && record.code !== code) {
+  return res.status(400).json({
+    success: false,
+    message: "Invalid verification code",
+  });
+}
 
     if (record.expiresAt < new Date()) {
       return res.status(400).json({
