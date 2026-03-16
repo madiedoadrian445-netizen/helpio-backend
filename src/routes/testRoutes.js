@@ -1,16 +1,33 @@
+import express from "express";
 import { sendPushNotification } from "../utils/sendPushNotification.js";
 
+const router = express.Router();
+
 router.get("/test-push", async (req, res) => {
+  try {
+    const { token } = req.query;
 
-  const result = await sendPushNotification({
-    token: "PASTE_YOUR_PUSH_TOKEN_HERE",
-    title: "Helpio Test",
-    body: "Push notifications are working 🚀",
-    data: {
-      type: "chat"
+    if (!token) {
+      return res.status(400).json({
+        error: "Missing push token",
+      });
     }
-  });
 
-  res.json(result);
+    const result = await sendPushNotification({
+      token,
+      title: "Helpio Test",
+      body: "Push notifications are working 🚀",
+      data: {
+        type: "chat",
+      },
+    });
 
+    res.json(result);
+
+  } catch (err) {
+    console.error("Push test error:", err);
+    res.status(500).json({ error: "Push test failed" });
+  }
 });
+
+export default router;

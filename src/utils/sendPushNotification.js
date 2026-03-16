@@ -1,4 +1,3 @@
-
 export async function sendPushNotification({
   token,
   title,
@@ -12,6 +11,8 @@ export async function sendPushNotification({
       title,
       body,
       data,
+      priority: "high",
+      channelId: "default",
     };
 
     const response = await fetch(
