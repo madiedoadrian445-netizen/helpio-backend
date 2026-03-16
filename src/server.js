@@ -37,6 +37,10 @@ import { initSocket } from "./socket.js";
 import searchRoutes from "./routes/searchRoutes.js";
 import reviewRoutes from "./routes/review.routes.js";
 import stripeConnectRoutes from "./routes/stripeConnectRoutes.js";
+
+import testRoutes from "./routes/testRoutes.js";
+
+
 process.on("unhandledRejection", (reason) => {
   console.log("💥 UNHANDLED REJECTION:");
   console.log(reason);
@@ -425,7 +429,7 @@ app.use("/api/conversations", conversationRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/services", serviceRoutes);
 app.use("/api/analytics", analyticsRoutes);
-
+app.use("/api/test", testRoutes);
 
 
 /* ⭐ NEW — FULL ADMIN CRON SUITE */
