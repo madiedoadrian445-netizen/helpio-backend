@@ -1,7 +1,7 @@
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import { getIO } from "../socket.js";
-
+import { sendPushNotification } from "../utils/sendPushNotification.js";
 
 
 
@@ -308,6 +308,41 @@ if (String(convo.providerId) === String(sender.senderId)) {
 }
 
 await convo.save();
+
+/* 🔔 PUSH NOTIFICATION */
+try {
+
+  const receiverId =
+    String(convo.providerId) === String(sender.senderId)
+      ? convo.customerId
+      : convo.providerId;
+
+// 🔒 Prevent notifying the sender
+if (receiverId === String(sender.senderId)) return;
+
+  const receiverUser = await Conversation.db
+    .model("User")
+    .findById(receiverId)
+    .select("pushToken");
+
+  if (receiverUser?.pushToken) {
+
+    await sendPushNotification({
+      token: receiverUser.pushToken,
+      title: "New Message",
+      body: cleanText || "📷 Photo",
+      data: {
+        type: "chat",
+        conversationId: convo._id,
+      },
+    });
+
+  }
+
+} catch (err) {
+  console.log("Push notification failed:", err.message);
+}
+
 
 /* 🔴 REAL-TIME EMIT — sends message instantly to both users */
 /* 🔴 REAL-TIME EMIT — sends message instantly to both users */
