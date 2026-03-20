@@ -104,35 +104,65 @@ export const getProviderAnalytics = async (req, res) => {
        BAR CHART DATA (12 days)
     --------------------------- */
 
-    const revenueAgg = await TerminalPayment.aggregate([
-      {
-        $match: {
-          provider: provider._id,
-          status: "captured"
+  const last12Start = new Date();
+last12Start.setDate(now.getDate() - 11);
+last12Start.setHours(0, 0, 0, 0);
+
+const revenueAgg = await TerminalPayment.aggregate([
+  {
+    $match: {
+      provider: provider._id,
+      status: "captured",
+      createdAt: { $gte: last12Start }
+    }
+  },
+  {
+    $group: {
+      _id: {
+        day: {
+       $dateToString: {
+  format: "%Y-%m-%d",
+  date: "$createdAt",
+  timezone: "America/New_York"
+}
         }
       },
-      {
-        $group: {
-          _id: {
-            day: {
-              $dateToString: {
-                format: "%Y-%m-%d",
-                date: "$createdAt"
-              }
-            }
-          },
-          total: { $sum: "$amountCapturedCents" }
-        }
-      },
-     { $sort: { "_id.day": -1 } },
-{ $limit: 12 },
-{ $sort: { "_id.day": 1 } }
-    ]);
+      total: { $sum: "$amountCapturedCents" }
+    }
+  },
+  { $sort: { "_id.day": 1 } }
+]);
+// Build map of existing days
+const revenueMap = {};
+revenueAgg.forEach(d => {
+  revenueMap[d._id.day] = Math.round(d.total / 100);
+});
 
-    const revenueData = revenueAgg.map(d => ({
-      value: Math.round(d.total / 100)
-    }));
+// Build full 12-day timeline (fills missing days with 0)
+const revenueData = [];
 
+for (let i = 11; i >= 0; i--) {
+ 
+  
+  
+  const date = new Date(now);
+date.setDate(now.getDate() - i);
+date.setHours(0, 0, 0, 0);
+
+
+
+const key = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/New_York",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+}).format(date);
+
+  revenueData.push({
+    date: key,
+    value: revenueMap[key] || 0
+  });
+}
     return res.json({
       success: true,
       analytics: {
