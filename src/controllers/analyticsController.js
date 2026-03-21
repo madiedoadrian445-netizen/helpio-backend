@@ -100,31 +100,31 @@ export const getProviderAnalytics = async (req, res) => {
         ? 100
         : Math.round(((totalLast30Days - prev30) / prev30) * 100);
 
-    /* ---------------------------
-       BAR CHART DATA (12 days)
-    --------------------------- */
+/* ---------------------------
+   BAR CHART DATA (14 days)
+--------------------------- */
 
-  const last12Start = new Date();
-last12Start.setDate(now.getDate() - 11);
-last12Start.setHours(0, 0, 0, 0);
+const last14Start = new Date();
+last14Start.setDate(now.getDate() - 13);
+last14Start.setHours(0, 0, 0, 0);
 
 const revenueAgg = await TerminalPayment.aggregate([
   {
     $match: {
       provider: provider._id,
       status: "captured",
-      createdAt: { $gte: last12Start }
+      createdAt: { $gte: last14Start }
     }
   },
   {
     $group: {
       _id: {
         day: {
-       $dateToString: {
-  format: "%Y-%m-%d",
-  date: "$createdAt",
-  timezone: "America/New_York"
-}
+          $dateToString: {
+            format: "%Y-%m-%d",
+            date: "$createdAt",
+            timezone: "America/New_York"
+          }
         }
       },
       total: { $sum: "$amountCapturedCents" }
@@ -132,37 +132,36 @@ const revenueAgg = await TerminalPayment.aggregate([
   },
   { $sort: { "_id.day": 1 } }
 ]);
-// Build map of existing days
+
+// Map existing days
 const revenueMap = {};
 revenueAgg.forEach(d => {
   revenueMap[d._id.day] = Math.round(d.total / 100);
 });
 
-// Build full 12-day timeline (fills missing days with 0)
+// Build FULL 14-day timeline (fills missing days)
 const revenueData = [];
 
-for (let i = 11; i >= 0; i--) {
- 
-  
-  
+for (let i = 13; i >= 0; i--) {
   const date = new Date(now);
-date.setDate(now.getDate() - i);
-date.setHours(0, 0, 0, 0);
+  date.setDate(now.getDate() - i);
 
-
-
-const key = new Intl.DateTimeFormat("en-CA", {
+  const key = new Intl.DateTimeFormat("en-CA", {
   timeZone: "America/New_York",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-}).format(date);
+}).format(date).replace(/\//g, "-");
 
   revenueData.push({
     date: key,
     value: revenueMap[key] || 0
   });
 }
+
+
+
+
+
+
+
     return res.json({
       success: true,
       analytics: {
