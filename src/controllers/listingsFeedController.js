@@ -128,17 +128,17 @@ async function getOrCreateSession({ userId, refresh }) {
 export const getFeed = async (req, res) => {
 
   try {
-  const userId =
+  
+
+let userId =
   req.user?.id ||
   req.user?._id ||
   req.user?.userId ||
   null;
 
+// 🔥 Allow guest users
 if (!userId) {
-  return res.status(401).json({
-    success: false,
-    message: "Unauthorized — user missing in request",
-  });
+  userId = `guest_${req.ip}_${req.headers["user-agent"]?.slice(0, 20) || "unknown"}`;
 }
 
 

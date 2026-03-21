@@ -22,7 +22,7 @@ const router = express.Router();
 ============================================================ */
 
 // ⭐ FEED (must be BEFORE /:id)
-router.get("/feed", protect, getFeed);
+router.get("/feed", getFeed);
 
 
 //GET my listings (provider only)
