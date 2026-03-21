@@ -101,7 +101,7 @@ router.post("/login", authAttackPrecheck, async (req, res, next) => {
   const ctx = getContext(req);
 
   try {
-    const response = await login(req, res);
+   const response = await login(req, res, next);
 
     if (res.statusCode >= 200 && res.statusCode < 300) {
       await logAuthEvent({
@@ -143,7 +143,7 @@ router.post("/refresh", async (req, res, next) => {
   const ctx = getContext(req);
 
   try {
-    const response = await refreshToken(req, res);
+   const response = await refreshToken(req, res, next);
 
     await logAuthEvent({
       user: req.user?._id,
@@ -172,8 +172,7 @@ router.post("/logout", async (req, res, next) => {
   const ctx = getContext(req);
 
   try {
-    const response = await logout(req, res);
-
+   const response = await logout(req, res, next);
     await logAuthEvent({
       user: req.user?._id,
       email: req.user?.email,
@@ -214,7 +213,7 @@ router.get("/dev-login", async (req, res, next) => {
   const ctx = getContext(req);
 
   try {
-    const result = await devLogin(req, res);
+    const result = await devLogin(req, res, next);
 
     await logAuthEvent({
       type: "login_success",
