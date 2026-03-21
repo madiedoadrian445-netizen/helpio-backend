@@ -167,7 +167,11 @@ export const register = async (req, res, next) => {
     const { name, email, password } = req.body;
 
     const trimmedName = name?.trim();
+   
+   
     const normalizedEmail = email?.trim().toLowerCase();
+
+
 
 
 
@@ -269,7 +273,14 @@ export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = email?.trim().toLowerCase();
+
+if (!normalizedEmail || !password) {
+  return res.status(400).json({
+    success: false,
+    message: "Email and password are required",
+  });
+}
 
     // ⭐ CRITICAL FIX: explicitly select password
     const user = await User.findOne({ email: normalizedEmail }).select(
@@ -347,19 +358,34 @@ export const login = async (req, res, next) => {
 
 export const getMe = async (req, res, next) => {
   try {
-    const provider = await Provider.findOne({ user: req.user._id }).select("_id");
+    const userId = req.user.id;
+
+
+
+
+    const user = await User.findById(userId);
+
+if (!user) {
+  return res.status(404).json({
+    success: false,
+    message: "User not found",
+  });
+}
+
+
+    const provider = await Provider.findOne({ user: userId }).select("_id");
 
     return res.json({
       success: true,
       user: {
-        _id: req.user._id,
-        name: req.user.name,
-        email: req.user.email,
-        role: req.user.role,
-        isVerifiedProvider: req.user.isVerifiedProvider,
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isVerifiedProvider: user.isVerifiedProvider,
         providerId: provider?._id || null,
-        createdAt: req.user.createdAt,
-        updatedAt: req.user.updatedAt,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       },
     });
   } catch (err) {

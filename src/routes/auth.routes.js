@@ -13,12 +13,7 @@ import {
 
 import { protect } from "../middleware/auth.js";
 import { devLogin } from "../controllers/dev.controller.js";
-
-import { logAuthEvent } from "../utils/authLogger.js";
 import { authAttackPrecheck } from "../middleware/authAttackPrecheck.js";
-
-
-
 
 // ⭐ Password Reset Controllers
 import {
@@ -35,101 +30,26 @@ import {
 
 const router = express.Router();
 
-/* Utility to capture IP + UA for audit logs */
-const getContext = (req) => ({
-  ip: req.ip,
-  userAgent: req.headers["user-agent"],
-});
-
 /* ----------------------------------------------------------
    REGISTER
 ---------------------------------------------------------- */
-router.post("/register", async (req, res, next) => {
-  const { email } = req.body || {};
-  const ctx = getContext(req);
-
-  try {
-   const response = await register(req, res, next);
-
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      await logAuthEvent({
-        email,
-        type: "register",
-        ...ctx,
-      });
-    } else {
-      await logAuthEvent({
-        email,
-        type: "register_failed",
-        ...ctx,
-        metadata: { status: res.statusCode },
-      });
-    }
-
-    return response;
-  } catch (err) {
-    await logAuthEvent({
-      email,
-      type: "register_failed",
-      ...ctx,
-      metadata: { error: err.message },
-    });
-    next(err);
-  }
-});
+router.post("/register", register);
 
 /* ----------------------------------------------------------
    PHONE VERIFICATION
 ---------------------------------------------------------- */
-
 router.post("/send-phone-code", sendPhoneCode);
 router.post("/verify-phone-code", verifyPhoneCode);
-
 
 /* ----------------------------------------------------------
    REGISTER PROVIDER
 ---------------------------------------------------------- */
 router.post("/register-provider", registerProvider);
 
-
-
 /* ----------------------------------------------------------
-   LOGIN — now protected by authAttackPrecheck
+   LOGIN
 ---------------------------------------------------------- */
-router.post("/login", authAttackPrecheck, async (req, res, next) => {
-  const { email } = req.body || {};
-  const ctx = getContext(req);
-
-  try {
-   const response = await login(req, res, next);
-
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      await logAuthEvent({
-        user: req.user?._id,
-        email,
-        type: "login_success",
-        ...ctx,
-      });
-    } else {
-      await logAuthEvent({
-        email,
-        type: "login_failed",
-        ...ctx,
-        metadata: { status: res.statusCode },
-      });
-    }
-
-    return response;
-  } catch (err) {
-    await logAuthEvent({
-      email,
-      type: "login_failed",
-      ...ctx,
-      metadata: { error: err.message },
-    });
-    next(err);
-  }
-});
+router.post("/login", authAttackPrecheck, login);
 
 /* ----------------------------------------------------------
    GET CURRENT USER
@@ -139,99 +59,29 @@ router.get("/me", protect, getMe);
 /* ----------------------------------------------------------
    REFRESH TOKEN
 ---------------------------------------------------------- */
-router.post("/refresh", async (req, res, next) => {
-  const ctx = getContext(req);
-
-  try {
-   const response = await refreshToken(req, res, next);
-
-    await logAuthEvent({
-      user: req.user?._id,
-      email: req.user?.email,
-      type: "token_refreshed",
-      ...ctx,
-    });
-
-    return response;
-  } catch (err) {
-    await logAuthEvent({
-      user: req.user?._id,
-      email: req.user?.email,
-      type: "refresh_failed",
-      ...ctx,
-      metadata: { error: err.message },
-    });
-    next(err);
-  }
-});
+router.post("/refresh", refreshToken);
 
 /* ----------------------------------------------------------
    LOGOUT
 ---------------------------------------------------------- */
-router.post("/logout", async (req, res, next) => {
-  const ctx = getContext(req);
-
-  try {
-   const response = await logout(req, res, next);
-    await logAuthEvent({
-      user: req.user?._id,
-      email: req.user?.email,
-      type: "logout",
-      ...ctx,
-    });
-
-    return response;
-  } catch (err) {
-    await logAuthEvent({
-      user: req.user?._id,
-      email: req.user?.email,
-      type: "logout_failed",
-      ...ctx,
-      metadata: { error: err.message },
-    });
-    next(err);
-  }
-});
+router.post("/logout", logout);
 
 /* ----------------------------------------------------------
-   ⭐ PASSWORD RESET (B21-D)
+   PASSWORD RESET
 ---------------------------------------------------------- */
 router.post("/password/request-reset", requestPasswordReset);
 router.post("/password/verify-token", verifyResetToken);
 router.post("/password/reset", resetPassword);
 
 /* ----------------------------------------------------------
-   ⭐ MFA (B21-D)
+   MFA
 ---------------------------------------------------------- */
 router.post("/mfa/start", protect, startMFAChallenge);
 router.post("/mfa/verify", protect, verifyMFAChallenge);
 
 /* ----------------------------------------------------------
-   🔥 DEV-ONLY LOGIN (logged)
+   DEV LOGIN
 ---------------------------------------------------------- */
-router.get("/dev-login", async (req, res, next) => {
-  const ctx = getContext(req);
-
-  try {
-    const result = await devLogin(req, res, next);
-
-    await logAuthEvent({
-      type: "login_success",
-      user: res.locals?.userId,
-      email: res.locals?.email,
-      ...ctx,
-      metadata: { devLogin: true },
-    });
-
-    return result;
-  } catch (err) {
-    await logAuthEvent({
-      type: "login_failed",
-      ...ctx,
-      metadata: { devLogin: true, error: err.message },
-    });
-    next(err);
-  }
-});
+router.get("/dev-login", devLogin);
 
 export default router;
