@@ -46,9 +46,14 @@ export const sendPhoneCode = async (req, res, next) => {
  
  
     const rawPhone = req.body.phone;
-const phone = rawPhone?.trim().replace(/[^\d+]/g, "");
+const digits = rawPhone?.replace(/\D/g, "") || "";
 
-    if (!phone) {
+const e164Phone = digits.startsWith("1")
+  ? `+${digits}`
+  : `+1${digits}`;
+
+
+  if (!digits) {
       return res.status(400).json({
         success: false,
         message: "Phone number required",
@@ -57,7 +62,7 @@ const phone = rawPhone?.trim().replace(/[^\d+]/g, "");
 
 
 // Check existing verification
-const existing = await PhoneVerification.findOne({ phone });
+const existing = await PhoneVerification.findOne({ phone: digits });
 
 if (
   existing &&
@@ -78,10 +83,10 @@ const code = generateVerificationCode();
 
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-    await PhoneVerification.findOneAndUpdate(
-      { phone },
-      {
-        phone,
+   await PhoneVerification.findOneAndUpdate(
+  { phone: digits },
+  {
+    phone: digits,
         code,
         expiresAt,
         verified: false,
@@ -92,7 +97,7 @@ const code = generateVerificationCode();
     await twilioClient.messages.create({
       body: `Your Helpio verification code is: ${code}`,
       from: process.env.TWILIO_PHONE_NUMBER,
-      to: phone,
+    to: e164Phone,
     });
 
     return res.json({
@@ -106,22 +111,25 @@ const code = generateVerificationCode();
   }
 };
 
+/* -------------------------- VERIFY PHONE CODE -------------------------- */
 
 export const verifyPhoneCode = async (req, res, next) => {
   try {
    const rawPhone = req.body.phone;
 const code = req.body.code;
-const phone = rawPhone?.trim().replace(/[^\d+]/g, "");
+const digits = rawPhone?.replace(/\D/g, "") || "";
 
-
-if (!phone || !code) {
+if (!digits || !code)
+  
+  
+  {
   return res.status(400).json({
     success: false,
     message: "Phone and verification code are required",
   });
 }
 
-const record = await PhoneVerification.findOne({ phone });
+const record = await PhoneVerification.findOne({ phone: digits });
 
     if (!record) {
       return res.status(400).json({
@@ -472,7 +480,7 @@ export const registerProvider = async (req, res, next) => {
 
 const nameTrimmed = name?.trim();
 const normalizedEmail = email?.trim().toLowerCase();
-const normalizedPhone = phone?.trim().replace(/[^\d+]/g, "");
+const normalizedPhone = phone?.replace(/\D/g, "");
 
 
 if (!nameTrimmed || !normalizedEmail || !password || !companyName || !normalizedPhone){
