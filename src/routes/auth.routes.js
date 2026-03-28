@@ -11,11 +11,25 @@ import {
   registerProvider
 } from "../controllers/auth.controller.js";
 
+
+/* RATE LIMITERS */
+import {
+  loginLimiter,
+  registerLimiter,
+  registerProviderLimiter,
+  sendPhoneCodeLimiter,
+  verifyPhoneCodeLimiter,
+  passwordResetRequestLimiter,
+  passwordResetActionLimiter,
+  refreshLimiter,
+} from "../middleware/rateLimit.js";
+
+
 import { protect } from "../middleware/auth.js";
 import { devLogin } from "../controllers/dev.controller.js";
 import { authAttackPrecheck } from "../middleware/authAttackPrecheck.js";
 
-// ⭐ Password Reset Controllers
+// Password Reset
 import {
   requestPasswordReset,
   verifyResetToken,
@@ -33,24 +47,24 @@ const router = express.Router();
 /* ----------------------------------------------------------
    REGISTER
 ---------------------------------------------------------- */
-router.post("/register", register);
 
+router.post("/register", registerLimiter, register);
 /* ----------------------------------------------------------
    PHONE VERIFICATION
 ---------------------------------------------------------- */
-router.post("/send-phone-code", sendPhoneCode);
-router.post("/verify-phone-code", verifyPhoneCode);
 
+router.post("/send-phone-code", sendPhoneCodeLimiter, sendPhoneCode);
+router.post("/verify-phone-code", verifyPhoneCodeLimiter, verifyPhoneCode);
 /* ----------------------------------------------------------
    REGISTER PROVIDER
 ---------------------------------------------------------- */
-router.post("/register-provider", registerProvider);
 
+router.post("/register-provider", registerProviderLimiter, registerProvider);
 /* ----------------------------------------------------------
    LOGIN
 ---------------------------------------------------------- */
-router.post("/login", authAttackPrecheck, login);
 
+router.post("/login", loginLimiter, authAttackPrecheck, login);
 /* ----------------------------------------------------------
    GET CURRENT USER
 ---------------------------------------------------------- */
@@ -59,8 +73,8 @@ router.get("/me", protect, getMe);
 /* ----------------------------------------------------------
    REFRESH TOKEN
 ---------------------------------------------------------- */
-router.post("/refresh", refreshToken);
 
+router.post("/refresh", refreshLimiter, refreshToken);
 /* ----------------------------------------------------------
    LOGOUT
 ---------------------------------------------------------- */
@@ -69,9 +83,27 @@ router.post("/logout", logout);
 /* ----------------------------------------------------------
    PASSWORD RESET
 ---------------------------------------------------------- */
-router.post("/password/request-reset", requestPasswordReset);
-router.post("/password/verify-token", verifyResetToken);
-router.post("/password/reset", resetPassword);
+
+router.post(
+  "/password/request-reset",
+  passwordResetRequestLimiter,
+  requestPasswordReset
+);
+
+router.post(
+  "/password/verify-token",
+  passwordResetActionLimiter,
+  verifyResetToken
+);
+
+router.post(
+  "/password/reset",
+  passwordResetActionLimiter,
+  resetPassword
+);
+
+
+
 
 /* ----------------------------------------------------------
    MFA

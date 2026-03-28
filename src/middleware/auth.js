@@ -33,16 +33,29 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    // 3) Verify JWT
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid or expired token",
-      });
-    }
+
+    
+  // 3) Verify JWT
+let decoded;
+try {
+  decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+  // 🔥 STEP 4 — TOKEN TYPE ENFORCEMENT
+  if (decoded.type !== "access") {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid token type",
+    });
+  }
+
+} catch {
+  return res.status(401).json({
+    success: false,
+    message: "Invalid or expired token",
+  });
+}
+
+
 
     if (!decoded?.id || !isValidId(decoded.id)) {
       return res.status(401).json({

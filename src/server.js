@@ -54,7 +54,7 @@ process.on("uncaughtException", (err) => {
 
 
 
-console.log("🔑 JWT_SECRET:", process.env.JWT_SECRET);
+
 
 
 /* ❗ FIXED PATH */
@@ -213,7 +213,24 @@ app.use((req, res, next) => {
   console.log("🔑 auth header:", req.headers.authorization ? "YES" : "NO");
   console.log("🧩 params:", req.params);
   console.log("❓ query:", req.query);
-  console.log("🧾 body:", req.body);
+ 
+  const sensitivePaths = [
+  "/api/auth/login",
+  "/api/auth/register",
+  "/api/auth/register-provider",
+  "/api/auth/refresh",
+  "/api/auth/send-phone-code",
+  "/api/auth/verify-phone-code",
+  "/api/auth/password/request-reset",
+  "/api/auth/password/verify-token",
+  "/api/auth/password/reset",
+];
+
+const shouldRedactBody =
+  process.env.NODE_ENV === "production" ||
+  sensitivePaths.some((p) => req.originalUrl.startsWith(p));
+
+console.log("🧾 body:", shouldRedactBody ? "[REDACTED]" : req.body);
   console.log("════════════════════════════════════════════");
 
   res.on("finish", () => {

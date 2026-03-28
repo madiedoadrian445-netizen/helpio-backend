@@ -93,6 +93,13 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
 };
 
+
+userSchema.methods.matchRefreshToken = async function (token) {
+  if (!this.refreshToken) return false;
+  return bcrypt.compare(token, this.refreshToken);
+};
+
+
 /* ============================================================
    VIRTUALS
 ============================================================ */

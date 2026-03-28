@@ -21,6 +21,18 @@ const phoneVerificationSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    // ⭐ NEW — ATTEMPT TRACKING
+    attempts: {
+      type: Number,
+      default: 0,
+    },
+
+    // ⭐ NEW — LOCK FLAG
+    locked: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

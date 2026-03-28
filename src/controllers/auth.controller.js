@@ -10,6 +10,9 @@ import { SuspiciousEvent } from "../models/SuspiciousEvent.js";               //
 import { PhoneVerification } from "../models/PhoneVerification.js";
 import generateVerificationCode from "../utils/generateCode.js";
 import twilioClient from "../utils/twilio.js";
+import bcrypt from "bcryptjs";
+
+
 /* ----------------------- TOKEN HELPERS ----------------------- */
 
 const generateAccessToken = async (user) => {
@@ -17,7 +20,7 @@ const generateAccessToken = async (user) => {
 
   const payload = {
     id: user._id,
-
+    type: "access",
     // 🔥 CRITICAL IDENTITY FIELDS
     role: user.role || "customer",
     customerId: user._id,
@@ -32,13 +35,18 @@ const generateAccessToken = async (user) => {
   });
 };
 
-
 const generateRefreshToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_REFRESH_SECRET, {
-    expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
-  });
+  return jwt.sign(
+    {
+      id: userId,
+      type: "refresh", // 🔥 REQUIRED
+    },
+    process.env.JWT_REFRESH_SECRET,
+    {
+      expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
+    }
+  );
 };
-
 
 
 export const sendPhoneCode = async (req, res, next) => {
@@ -131,37 +139,60 @@ if (!digits || !code)
 
 const record = await PhoneVerification.findOne({ phone: digits });
 
-    if (!record) {
-      return res.status(400).json({
-        success: false,
-        message: "No verification request found",
-      });
-    }
+if (!record) {
+  return res.status(400).json({
+    success: false,
+    message: "No verification request found",
+  });
+}
 
-    const isTestCode =
+// 🔒 LOCK CHECK
+if (record.locked) {
+  return res.status(403).json({
+    success: false,
+    message: "Too many failed attempts. Please request a new code.",
+  });
+}
+
+const isTestCode =
   process.env.ALLOW_TEST_PHONE_CODE === "true" && code === "000000";
 
+// ❌ WRONG CODE HANDLING (WITH ATTEMPTS)
 if (!isTestCode && record.code !== code) {
+  record.attempts += 1;
+
+  if (record.attempts >= 5) {
+    record.locked = true;
+  }
+
+  await record.save();
+
   return res.status(400).json({
     success: false,
     message: "Invalid verification code",
   });
 }
 
-    if (record.expiresAt < new Date()) {
-      return res.status(400).json({
-        success: false,
-        message: "Verification code expired",
-      });
-    }
+// ⏳ EXPIRATION CHECK
+if (record.expiresAt < new Date()) {
+  return res.status(400).json({
+    success: false,
+    message: "Verification code expired",
+  });
+}
 
-   record.verified = true;
+// ✅ SUCCESS
+record.verified = true;
+record.attempts = 0;
+record.locked = false;
+
 await record.save();
 
 return res.json({
   success: true,
   verified: true,
 });
+
 
   } catch (err) {
     console.error("VERIFY PHONE CODE ERROR:", err);
@@ -251,7 +282,10 @@ const accessToken = await generateAccessToken(user);
 
 const refreshToken = generateRefreshToken(user._id);
 
-user.refreshToken = refreshToken;
+const salt = await bcrypt.genSalt(10);
+user.refreshToken = await bcrypt.hash(refreshToken, salt);
+
+
 await user.save();
 
 return res.status(201).json({
@@ -305,7 +339,11 @@ if (!normalizedEmail || !password) {
 
 
     const refreshToken = generateRefreshToken(user._id);
-    user.refreshToken = refreshToken;
+  
+    const salt = await bcrypt.genSalt(10);
+user.refreshToken = await bcrypt.hash(refreshToken, salt);
+
+
     await user.save();
 
     const provider = await Provider.findOne({ user: user._id }).select("_id");
@@ -419,8 +457,17 @@ export const refreshToken = async (req, res, next) => {
       process.env.JWT_REFRESH_SECRET
     );
 
+
+if (decoded.type !== "refresh") {
+  return res.status(401).json({
+    success: false,
+    message: "Invalid refresh token",
+  });
+}
+
+
     const user = await User.findById(decoded.id);
-    if (!user || user.refreshToken !== refreshToken) {
+   if (!user || !(await user.matchRefreshToken(refreshToken))) {
       return res
         .status(401)
         .json({ success: false, message: "Invalid refresh token" });
@@ -429,7 +476,12 @@ export const refreshToken = async (req, res, next) => {
     const newAccessToken = await generateAccessToken(user);
 
     const newRefreshToken = generateRefreshToken(user._id);
-    user.refreshToken = newRefreshToken;
+
+
+const salt = await bcrypt.genSalt(10);
+user.refreshToken = await bcrypt.hash(newRefreshToken, salt);
+
+
     await user.save();
 
     return res.json({
@@ -562,7 +614,9 @@ await PhoneVerification.deleteOne({ phone: normalizedPhone });
 
     const refreshToken = generateRefreshToken(user._id);
 
-    user.refreshToken = refreshToken;
+   const salt = await bcrypt.genSalt(10);
+user.refreshToken = await bcrypt.hash(refreshToken, salt);
+
     await user.save();
 
     return res.status(201).json({
