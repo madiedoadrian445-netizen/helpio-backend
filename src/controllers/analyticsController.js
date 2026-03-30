@@ -1,10 +1,17 @@
 import TerminalPayment from "../models/TerminalPayment.js";
 import Provider from "../models/Provider.js";
 
+import Invoice from "../models/Invoice.js";
+import Customer from "../models/Customer.js";
+import LedgerEntry from "../models/LedgerEntry.js";
+
+
+
+
 export const getProviderAnalytics = async (req, res) => {
   try {
 
-    const provider = await Provider.findOne({ user: req.user._id });
+const provider = await Provider.findOne({ user: req.user._id }).select("_id");
 
     if (!provider) {
       return res.status(401).json({
@@ -46,7 +53,9 @@ export const getProviderAnalytics = async (req, res) => {
     ]);
 
     const salesToday = salesTodayAgg[0]?.total || 0;
-    const invoicesToday = salesTodayAgg[0]?.count || 0;
+  const transactionsToday = salesTodayAgg[0]?.count || 0;
+
+
 
     /* ---------------------------
        LAST 30 DAYS SALES
@@ -158,22 +167,53 @@ for (let i = 13; i >= 0; i--) {
 
 
 
+/* ---------------------------
+   CORE BUSINESS METRICS
+--------------------------- */
 
+const [
+  invoicesToday,
+  totalInvoices,
+  totalTransactions,
+  totalClients
+] = await Promise.all([
+  Invoice.countDocuments({
+    provider: provider._id,
+    createdAt: { $gte: todayStart },
+  }),
 
+  Invoice.countDocuments({
+    provider: provider._id,
+  }),
 
+  LedgerEntry.countDocuments({
+    provider: provider._id,
+    direction: "credit",
+    status: "posted",
+    type: { $in: ["charge", "terminal_charge"] },
+  }),
+
+  Customer.countDocuments({
+    provider: provider._id,
+  }),
+]);
 
     return res.json({
       success: true,
       analytics: {
         salesToday: Math.round(salesToday / 100),
+        transactionsToday,
         invoicesToday,
         subscriptions: 0,
         totalLast30Days: Math.round(totalLast30Days / 100),
         previous30DaysGrowth,
         lastYearGrowth: 0,
-        revenueData
+        revenueData,
+        totalInvoices,
+        totalTransactions,
+        totalClients,
       }
-    });
+      });
 
   } catch (err) {
 
