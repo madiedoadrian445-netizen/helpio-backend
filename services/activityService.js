@@ -72,7 +72,7 @@ return {
         category: "invoice",
         title: "Invoice paid",
         message: `Invoice #${i.number || i.invoiceNumber || "—"}`,
-        amount: Number(i.total || 0),
+        amount: Math.round(Number(i.total || 0) * 100),
         type: "credit",
         createdAt,
         time: formatTime(createdAt),
