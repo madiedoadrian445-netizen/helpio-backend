@@ -48,18 +48,18 @@ const [ledgerEntries, invoices, clients] = await Promise.all([
     const ledgerEvents = ledgerEntries.map((entry) => {
       const createdAt = entry.createdAt || new Date();
 
-      const isCredit = entry.type === "credit";
 
-      return {
-        id: entry._id.toString(),
-        category: isCredit ? "payment" : "payout",
-        title: isCredit ? "Payment received" : "Payout sent",
-        message: `${entry.description || "Transaction"} • $${formatAmount(entry.amount)}`,
-        amount: Number(entry.amount || 0),
-        type: entry.type, // credit / debit
-        createdAt,
-        time: formatTime(createdAt),
-      };
+
+return {
+  id: entry._id.toString(),
+  category: "payment", // 👈 always payment
+  title: "Payment received", // 👈 always this label
+  message: `${entry.description || "Transaction"} • $${formatAmount(entry.amount)}`,
+  amount: Number(entry.amount || 0),
+  type: entry.type,
+  createdAt,
+  time: formatTime(createdAt),
+};
     });
 
     /* ---------- Invoices ---------- */
