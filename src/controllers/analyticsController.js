@@ -109,6 +109,32 @@ const provider = await Provider.findOne({ user: req.user._id }).select("_id");
         ? 100
         : Math.round(((totalLast30Days - prev30) / prev30) * 100);
 
+
+
+
+/* ---------------------------
+   ALL-TIME REVENUE
+--------------------------- */
+
+const allTimeAgg = await TerminalPayment.aggregate([
+  {
+    $match: {
+      provider: provider._id,
+      status: "captured",
+    }
+  },
+  {
+    $group: {
+      _id: null,
+      total: { $sum: "$amountCapturedCents" }
+    }
+  }
+]);
+
+const totalRevenueAllTime = allTimeAgg[0]?.total || 0;
+
+
+
 /* ---------------------------
    BAR CHART DATA (14 days)
 --------------------------- */
@@ -206,6 +232,7 @@ const [
         invoicesToday,
         subscriptions: 0,
         totalLast30Days: Math.round(totalLast30Days / 100),
+        totalRevenueAllTime: Math.round(totalRevenueAllTime / 100),
         previous30DaysGrowth,
         lastYearGrowth: 0,
         revenueData,
