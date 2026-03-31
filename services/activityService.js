@@ -31,7 +31,7 @@ const [ledgerEntries, invoices, clients] = await Promise.all([
     .limit(limit)
     .lean(),
 
-  Invoice.find({ provider: userId, status: "paid" })
+ Invoice.find({ provider: userId })
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean(),
