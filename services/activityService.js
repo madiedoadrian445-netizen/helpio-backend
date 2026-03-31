@@ -24,19 +24,34 @@ const formatAmount = (val) => Number(val || 0).toFixed(2);
 
 export const getActivityFeed = async (userId, options = {}) => {
   try {
-    const { limit = 50 } = options;
+const { limit = 50, customerId } = options;
+
+
 const [ledgerEntries, invoices, clients] = await Promise.all([
-  LedgerEntry.find({ provider: userId })
+LedgerEntry.find({
+  provider: userId,
+  ...(customerId && { customer: customerId }), // 🔥 THIS IS THE FIX
+})
+
+
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean(),
 
- Invoice.find({ provider: userId })
+Invoice.find({
+  provider: userId,
+  ...(customerId && { customer: customerId }), // 🔥 ADD THIS
+})
+
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean(),
 
-  Customer.find({ provider: userId })
+Customer.find({
+  provider: userId,
+  ...(customerId && { _id: customerId }), // 🔥 ADD THIS
+})
+
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean(),
@@ -54,7 +69,8 @@ return {
   id: entry._id.toString(),
   category: "payment", // 👈 always payment
   title: "Payment received", // 👈 always this label
-  message: entry.description || "Transaction",
+message: entry.description 
+  || `Paid with ${entry.method || "Card"} •••• ${entry.last4 || ""}`,
   amount: Number(entry.amount || 0),
   type: entry.type,
   createdAt,

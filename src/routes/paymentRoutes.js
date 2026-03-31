@@ -1,6 +1,9 @@
 import express from "express";
 import { protect } from "../middleware/auth.js";
 import Payment from "../models/paymentModel.js";
+import Activity from "../models/activityModel.js";
+
+
 
 const router = express.Router();
 
@@ -20,6 +23,7 @@ router.post("/", protect, async (req, res) => {
     } = req.body;
 
     const payment = await Payment.create({
+
       userId: req.user._id, // 🔥 CRITICAL
       clientId,
       amount,
@@ -29,6 +33,20 @@ router.post("/", protect, async (req, res) => {
       status,
       date,
     });
+
+await Activity.create({
+  userId: req.user._id,
+
+  category: "payment",
+
+  title: "Payment received",
+  message: `Payment from client`,
+
+  amount: amount,
+
+  customerId: clientId, // 🔥 THIS is what links it to ClientProfile
+});
+
 
     res.json({ success: true, payment });
 

@@ -20,14 +20,15 @@ export const getActivity = async (req, res) => {
       });
     }
 
-    const { limit = 50 } = req.query;
+const { limit = 50, customerId } = req.query;
     const rawLimit = parseInt(limit, 10);
     const safeLimit = Math.min(isNaN(rawLimit) ? 50 : rawLimit, 100);
 
     // 🔥 STEP 2: Use provider._id (NOT req.user)
-    const activity = await getActivityFeed(provider._id, {
-      limit: safeLimit,
-    });
+const activity = await getActivityFeed(provider._id, {
+  limit: safeLimit,
+  customerId, // 🔥 pass it down
+});
 
     res.json({
       success: true,
