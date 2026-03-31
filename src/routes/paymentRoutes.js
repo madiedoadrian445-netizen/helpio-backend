@@ -1,7 +1,7 @@
 import express from "express";
 import { protect } from "../middleware/auth.js";
 import Payment from "../models/paymentModel.js";
-import Activity from "../models/activityModel.js";
+import LedgerEntry from "../models/LedgerEntry.js";
 
 
 
@@ -33,18 +33,12 @@ router.post("/", protect, async (req, res) => {
       status,
       date,
     });
-
-await Activity.create({
-  userId: req.user._id,
-
-  category: "payment",
-
-  title: "Payment received",
-  message: `Payment from client`,
-
-  amount: amount,
-
-  customerId: clientId, // 🔥 THIS is what links it to ClientProfile
+await LedgerEntry.create({
+  provider: req.user._id,
+  customer: clientId, // 🔥 links to client profile
+  amount,
+  type: "credit",
+  description: `Paid with ${method || "Card"}${last4 ? ` •••• ${last4}` : ""}`,
 });
 
 
