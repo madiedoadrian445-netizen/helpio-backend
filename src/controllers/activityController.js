@@ -1,4 +1,4 @@
-import Provider from "../../models/Provider.js";
+import Provider from "../models/Provider.js";
 import { getActivityFeed } from "../../services/activityService.js";
 
 export const getActivity = async (req, res) => {
