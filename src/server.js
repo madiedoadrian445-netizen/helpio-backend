@@ -97,6 +97,9 @@ import feedRoutes from "./routes/feedRoutes.js";
 import stripeBalanceRoutes from "./routes/stripeBalanceRoutes.js";
 import stripePayoutRoutes from "./routes/stripePayoutRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
+import activityRoutes from "./routes/activityRoutes.js";
+
+
 
 /* ⭐ NEW — Admin Ledger Audit Routes */
 import adminLedgerRoutes from "./routes/adminLedgerRoutes.js";
@@ -430,7 +433,7 @@ app.use("/api/admin/suspicious", adminSuspiciousRoutes);
 app.use("/api/reviews", reviewRoutes);
 // Real terminal payments (future Stripe Terminal)
 app.use("/api/terminal-payments", terminalPaymentRoutes);
-
+app.use("/api/activity", activityRoutes);
 
 app.use("/api/stripe", stripeConnectRoutes);
 app.use("/api/stripe", stripeBalanceRoutes);
