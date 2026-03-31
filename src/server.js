@@ -37,7 +37,7 @@ import { initSocket } from "./socket.js";
 import searchRoutes from "./routes/searchRoutes.js";
 import reviewRoutes from "./routes/review.routes.js";
 import stripeConnectRoutes from "./routes/stripeConnectRoutes.js";
-
+import paymentRoutes from "./routes/paymentRoutes.js";
 import testRoutes from "./routes/testRoutes.js";
 
 
@@ -443,6 +443,11 @@ app.use("/api/stripe", stripeIdentityRoutes);
 
 // Expo-friendly simulated Tap-to-Pay
 app.use("/api/terminal-payments-sim", terminalPaymentSimRoutes);
+
+
+// Payment Routes Link to Clients
+app.use("/api/payments", paymentRoutes);
+
 
 // Conversations & Messages
 app.use("/api/conversations", conversationRoutes);
