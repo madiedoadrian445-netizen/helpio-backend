@@ -1,7 +1,6 @@
-import Invoice from "../models/Invoice.js";
-import Customer from "../models/Customer.js";
-import LedgerEntry from "../models/LedgerEntry.js";
-
+import Invoice from "../src/models/Invoice.js";
+import Customer from "../src/models/Customer.js";
+import LedgerEntry from "../src/models/LedgerEntry.js";
 /* ---------- Helpers ---------- */
 
 const formatTime = (date) => {
