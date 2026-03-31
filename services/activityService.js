@@ -54,7 +54,7 @@ return {
   id: entry._id.toString(),
   category: "payment", // 👈 always payment
   title: "Payment received", // 👈 always this label
-  message: `${entry.description || "Transaction"} • $${formatAmount(entry.amount)}`,
+  message: entry.description || "Transaction",
   amount: Number(entry.amount || 0),
   type: entry.type,
   createdAt,
@@ -71,7 +71,7 @@ return {
         id: i._id.toString(),
         category: "invoice",
         title: "Invoice paid",
-        message: `Invoice #${i.number || i.invoiceNumber || "—"} • $${formatAmount(i.total)}`,
+        message: `Invoice #${i.number || i.invoiceNumber || "—"}`,
         amount: Number(i.total || 0),
         type: "credit",
         createdAt,
