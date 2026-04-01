@@ -13,8 +13,7 @@ import {
   adminGetTerminalPayment
 } from "../controllers/terminalPaymentController.js";
 import TerminalPayment from "../models/TerminalPayment.js";
-import Activity from "../models/Activity.js";
-
+import LedgerEntry from "../models/LedgerEntry.js";
 
 
 const router = express.Router();
@@ -50,15 +49,23 @@ router.patch("/:id/attach-client", protect, async (req, res) => {
     payment.customer = clientId;
 await payment.save();
 
+
+
 // 🔥 ADD THIS (THIS IS THE FIX)
-await Activity.create({
+await LedgerEntry.create({
+  provider: payment.provider,
   customer: clientId,
-  category: "payment",
-  title: "Payment received",
-  message: "Payment completed via Helpio Pay",
+
+  type: "charge",
+  direction: "credit",
+
   amount: payment.amountCapturedCents / 100,
+  notes: "Payment received via Helpio Pay",
+
   createdAt: payment.createdAt,
 });
+
+
 
 res.json({
   success: true,
