@@ -52,6 +52,12 @@ await payment.save();
 
 
 // 🔥 ADD THIS (THIS IS THE FIX)
+console.log("🧾 Creating ledger entry:", {
+  provider: payment.provider,
+  customer: clientId,
+  amount: payment.amountCapturedCents,
+});
+
 await LedgerEntry.create({
   provider: payment.provider,
   customer: clientId,
@@ -59,12 +65,12 @@ await LedgerEntry.create({
   type: "charge",
   direction: "credit",
 
-  amount: payment.amountCapturedCents / 100,
+  amount: Number(payment.amountCapturedCents || 0) / 100,
+
+  currency: payment.currency || "usd", // 🔥 important
+
   notes: "Payment received via Helpio Pay",
-
-  createdAt: payment.createdAt,
 });
-
 
 
 res.json({
@@ -74,7 +80,7 @@ res.json({
 
 
   } catch (err) {
-    console.error("❌ attach-client error:", err);
+   console.error("❌ attach-client error:", err.message, err.stack);
     res.status(500).json({
       success: false,
       message: "Failed to attach client",
