@@ -58,19 +58,15 @@ console.log("🧾 Creating ledger entry:", {
   amount: payment.amountCapturedCents,
 });
 
-await LedgerEntry.create({
-  provider: payment.provider,
-  customer: clientId,
 
-  type: "charge",
-  direction: "credit",
 
-  amount: Number(payment.amountCapturedCents || 0) / 100,
+// 🔥 UPDATE existing ledger entry (DO NOT CREATE NEW ONE)
+if (payment.ledgerEntry) {
+  await LedgerEntry.findByIdAndUpdate(payment.ledgerEntry, {
+    customer: clientId,
+  });
+}
 
-  currency: payment.currency || "usd", // 🔥 important
-
-  notes: "Payment received via Helpio Pay",
-});
 
 
 res.json({
