@@ -2,7 +2,7 @@ import express from "express";
 import { protect } from "../middleware/auth.js";
 import Payment from "../models/paymentModel.js";
 import LedgerEntry from "../models/LedgerEntry.js";
-
+import Provider from "../models/Provider.js";
 
 
 const router = express.Router();
@@ -33,12 +33,28 @@ router.post("/", protect, async (req, res) => {
       status,
       date,
     });
+const provider = await Provider.findOne({ user: req.user._id });
+
+if (!provider) {
+  return res.status(400).json({
+    success: false,
+    message: "Provider not found",
+  });
+}
+
 await LedgerEntry.create({
-  provider: req.user._id,
-  customer: clientId, // 🔥 links to client profile
-  amount,
-  type: "credit",
-  description: `Paid with ${method || "Card"}${last4 ? ` •••• ${last4}` : ""}`,
+  provider: provider._id,            // ✅ correct
+  customer: clientId,
+
+  type: "charge",                    // ✅ required enum
+  direction: "credit",               // ✅ required
+  sourceType: "terminal",            // ✅ required
+
+  amount: Number(amount),
+
+  notes: `Paid with ${method || "Card"}${last4 ? ` •••• ${last4}` : ""}`,
+
+  createdBy: "provider",
 });
 
 
