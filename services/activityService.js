@@ -70,12 +70,13 @@ Customer.find({
 
 
 
+const amountFormatted = formatAmount(entry.amount);
+
 return {
   id: entry._id.toString(),
-  category: "payment", // 👈 always payment
-  title: "Payment received", // 👈 always this label
-message: entry.notes 
-  || "Payment received",
+  category: "payment",
+  title: "Payment received",
+ message: `$${amountFormatted}`,
   amount: Number(entry.amount || 0),
   type: entry.type,
   createdAt,
