@@ -13,7 +13,7 @@ import {
   adminGetTerminalPayment
 } from "../controllers/terminalPaymentController.js";
 import TerminalPayment from "../models/TerminalPayment.js";
-
+import Activity from "../models/Activity.js";
 
 
 
@@ -48,12 +48,24 @@ router.patch("/:id/attach-client", protect, async (req, res) => {
     }
 
     payment.customer = clientId;
-    await payment.save();
+await payment.save();
 
-    res.json({
-      success: true,
-      payment,
-    });
+// 🔥 ADD THIS (THIS IS THE FIX)
+await Activity.create({
+  customer: clientId,
+  category: "payment",
+  title: "Payment received",
+  message: "Payment completed via Helpio Pay",
+  amount: payment.amountCapturedCents / 100,
+  createdAt: payment.createdAt,
+});
+
+res.json({
+  success: true,
+  payment,
+});
+
+
   } catch (err) {
     console.error("❌ attach-client error:", err);
     res.status(500).json({
