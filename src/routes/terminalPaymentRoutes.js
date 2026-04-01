@@ -12,6 +12,10 @@ import {
   adminListTerminalPayments,
   adminGetTerminalPayment
 } from "../controllers/terminalPaymentController.js";
+import TerminalPayment from "../models/TerminalPayment.js";
+
+
+
 
 const router = express.Router();
 
@@ -25,6 +29,42 @@ router.post("/create-session", protect, createTerminalSession);
 router.post("/authorize", protect, authorizeTerminalPayment);
 router.post("/capture", protect, captureTerminalPayment);
 router.post("/cancel", protect, cancelTerminalSession);
+
+
+
+// ✅ ADD THIS BLOCK HERE
+router.patch("/:id/attach-client", protect, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { clientId } = req.body;
+
+    const payment = await TerminalPayment.findById(id);
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment not found",
+      });
+    }
+
+    payment.customer = clientId;
+    await payment.save();
+
+    res.json({
+      success: true,
+      payment,
+    });
+  } catch (err) {
+    console.error("❌ attach-client error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to attach client",
+    });
+  }
+});
+
+
+
 
 
 /* -------------------------------------------------------
