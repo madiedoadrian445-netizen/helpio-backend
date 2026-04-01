@@ -30,8 +30,13 @@ const { limit = 50, customerId } = options;
 const [ledgerEntries, invoices, clients] = await Promise.all([
 LedgerEntry.find({
   provider: userId,
-  ...(customerId && { customer: customerId }), // 🔥 THIS IS THE FIX
+
+  type: "charge",        // ✅ ONLY real payments
+  direction: "credit",   // ✅ money coming in
+
+  ...(customerId && { customer: customerId }),
 })
+
 
 
     .sort({ createdAt: -1 })
@@ -69,8 +74,8 @@ return {
   id: entry._id.toString(),
   category: "payment", // 👈 always payment
   title: "Payment received", // 👈 always this label
-message: entry.description 
-  || `Paid with ${entry.method || "Card"} •••• ${entry.last4 || ""}`,
+message: entry.notes 
+  || "Payment received",
   amount: Number(entry.amount || 0),
   type: entry.type,
   createdAt,
