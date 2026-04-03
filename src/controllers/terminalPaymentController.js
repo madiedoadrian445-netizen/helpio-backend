@@ -149,14 +149,15 @@ export const createTerminalSession = async (req, res) => {
 
     const { amount, currency = "usd", customerId, description = "" } = req.body;
 
-    const parsedAmount = Number(amount);
-    if (!parsedAmount || parsedAmount <= 0) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Amount must be > 0" });
-    }
+const amountGrossCents = Number(amount);
 
-    const amountGrossCents = Math.round(parsedAmount * 100);
+if (!Number.isInteger(amountGrossCents) || amountGrossCents <= 0) {
+  return res.status(400).json({
+    success: false,
+    message: "Invalid amount",
+  });
+}
+
 
     const sessionId = `term_${Date.now()}_${Math.random()
       .toString(36)
@@ -215,7 +216,7 @@ export const createTerminalSession = async (req, res) => {
       session: {
         id: sessionId,
         paymentId: terminalPayment._id,
-        amount: parsedAmount, // dollars for frontend
+      amount: amountGrossCents / 100, // dollars for frontend
       },
     });
   } catch (err) {
