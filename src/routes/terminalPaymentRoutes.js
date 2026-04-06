@@ -14,7 +14,7 @@ import {
 } from "../controllers/terminalPaymentController.js";
 import TerminalPayment from "../models/TerminalPayment.js";
 import LedgerEntry from "../models/LedgerEntry.js";
-
+import Provider from "../models/Provider.js";
 
 const router = express.Router();
 
@@ -45,6 +45,22 @@ router.patch("/:id/attach-client", protect, async (req, res) => {
         message: "Payment not found",
       });
     }
+
+const provider = await Provider.findOne({ user: req.user._id });
+
+if (!provider) {
+  return res.status(401).json({
+    success: false,
+    message: "Unauthorized",
+  });
+}
+
+if (payment.provider.toString() !== provider._id.toString()) {
+  return res.status(404).json({
+    success: false,
+    message: "Payment not found",
+  });
+}
 
     payment.customer = clientId;
 await payment.save();
@@ -92,7 +108,7 @@ res.json({
    ⭐ SIMULATED TAP-TO-PAY PAYMENT (Expo-safe)
 -------------------------------------------------------- */
 
-router.post("/simulate", async (req, res) => {
+router.post("/simulate", protect, async (req, res) => {
   try {
     const { amount, currency } = req.body;
 

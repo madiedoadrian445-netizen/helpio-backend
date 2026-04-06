@@ -252,6 +252,24 @@ export const authorizeTerminalPayment = async (req, res) => {
         .json({ success: false, message: "Session not found" });
     }
 
+
+const provider = await getProviderForUser(req.user?._id);
+
+if (!provider) {
+  return res.status(401).json({
+    success: false,
+    message: "Unauthorized",
+  });
+}
+
+if (payment.provider.toString() !== provider._id.toString()) {
+  return res.status(404).json({
+    success: false,
+    message: "Session not found",
+  });
+}
+
+
     if (payment.status !== "initiated") {
       return res.status(400).json({
         success: false,
@@ -300,16 +318,21 @@ payment.paymentIntentId = confirmed.id;
 payment.amountAuthorizedCents = payment.amountGross;
 payment.mode = "live";
 
-if (confirmed.status === "requires_capture") {
+
+
+if (
+  confirmed.status === "requires_capture" ||
+  confirmed.status === "succeeded"
+) {
+  // Treat BOTH as authorized
   payment.status = "authorized";
   payment.authorizedAt = new Date();
-} else if (confirmed.status === "succeeded") {
-  payment.status = "captured";
-  payment.capturedAt = new Date();
 } else {
   payment.status = "failed";
   payment.failedAt = new Date();
 }
+
+
 
 await payment.save();
 
@@ -365,6 +388,26 @@ export const captureTerminalPayment = async (req, res) => {
         .json({ success: false, message: "Session not found" });
     }
 
+
+if (payment.provider.toString() !== provider._id.toString()) {
+  return res.status(404).json({
+    success: false,
+    message: "Session not found",
+  });
+}
+
+
+
+if (payment.status === "captured") {
+  return res.json({
+    success: true,
+    replay: true,
+    payment,
+  });
+}
+
+
+
     if (payment.status !== "authorized") {
       return res.status(400).json({
         success: false,
@@ -404,11 +447,14 @@ if (!payment.paymentIntentId) {
     }
 
     if (idem.status === "existing_completed") {
-      return res.json({
-        success: true,
-        replay: true,
-        message: "Payment already captured",
-      });
+
+
+  return res.json({
+  success: true,
+  replay: true,
+  payment,
+});
+
     }
     if (idem.status === "existing_failed") {
       return res
@@ -597,6 +643,26 @@ export const cancelTerminalSession = async (req, res) => {
         message: "Session not found",
       });
     }
+
+
+// 🔥 ADD THIS BLOCK
+const provider = await getProviderForUser(req.user?._id);
+
+if (!provider) {
+  return res.status(401).json({
+    success: false,
+    message: "Unauthorized",
+  });
+}
+
+if (payment.provider.toString() !== provider._id.toString()) {
+  return res.status(404).json({
+    success: false,
+    message: "Session not found",
+  });
+}
+
+
 
     if (payment.status !== "initiated") {
       return res.status(400).json({
