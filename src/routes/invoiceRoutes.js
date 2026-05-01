@@ -34,7 +34,16 @@ router.post(
    GET ALL INVOICES FOR LOGGED-IN PROVIDER
    /api/invoices/provider/me
 ------------------------------------------------------- */
-router.get("/provider/me", protect, getInvoicesForProvider);
+router.get(
+  "/provider/me",
+  protect,
+  providerRateLimiter({
+    windowMs: 60 * 1000,
+    max: 120,
+    name: "invoice:list"
+  }),
+  getInvoicesForProvider
+);
 
 /* -------------------------------------------------------
    GET ALL INVOICES FOR A SPECIFIC CUSTOMER

@@ -147,6 +147,7 @@ customerSnapshot: {
 -------------------------------------------------------- */
 invoiceSchema.index({ provider: 1, customer: 1, createdAt: -1 });
 invoiceSchema.index({ invoiceNumber: 1 });
+invoiceSchema.index({ provider: 1, createdAt: -1 });
 
 /* -------------------------------------------------------
    EXPORTS — FIXED: supports both named + default import

@@ -222,6 +222,7 @@ export const getInvoicesForProvider = async (req, res, next) => {
 
     const [invoices, total] = await Promise.all([
       Invoice.find(filter)
+  .select("invoiceNumber total status customerSnapshot createdAt")
         .sort({ createdAt: sortOrder })
         .skip((pageNum - 1) * limitNum)
         .limit(limitNum)
@@ -271,7 +272,8 @@ export const getInvoicesForCustomer = async (req, res, next) => {
     }
 
     const [invoices, total] = await Promise.all([
-      Invoice.find(filter)
+     Invoice.find(filter)
+        .select("invoiceNumber total status customerSnapshot createdAt")
         .sort({ createdAt: sortOrder })
         .skip((pageNum - 1) * limitNum)
         .limit(limitNum)
