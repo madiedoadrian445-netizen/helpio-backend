@@ -4,41 +4,22 @@ import mongoose from "mongoose";
 const { Schema } = mongoose;
 
 /* -------------------------------------------------------
-   SOCIAL LINKS SUB-SCHEMA (Optional)
+   SOCIAL LINKS SUB-SCHEMA
 -------------------------------------------------------- */
 const socialsSchema = new Schema(
   {
     instagram: { type: String, trim: true, maxlength: 200 },
-    facebook: { type: String, trim: true, maxlength: 200 },
-    tiktok: { type: String, trim: true, maxlength: 200 },
-    youtube: { type: String, trim: true, maxlength: 200 },
-    twitter: { type: String, trim: true, maxlength: 200 }, // X
-    linkedin: { type: String, trim: true, maxlength: 200 }
+    facebook:  { type: String, trim: true, maxlength: 200 },
+    tiktok:    { type: String, trim: true, maxlength: 200 },
+    youtube:   { type: String, trim: true, maxlength: 200 },
+    twitter:   { type: String, trim: true, maxlength: 200 },
+    linkedin:  { type: String, trim: true, maxlength: 200 },
   },
   { _id: false }
 );
 
 /* -------------------------------------------------------
-   GEOLOCATION SUB-SCHEMA (Optional)
--------------------------------------------------------- */
-const geoLocationSchema = new Schema(
-  {
-    lat: {
-      type: Number,
-      min: -90,
-      max: 90
-    },
-    lng: {
-      type: Number,
-      min: -180,
-      max: 180
-    }
-  },
-  { _id: false }
-);
-
-/* -------------------------------------------------------
-   MAIN PROVIDER SCHEMA (MERGED)
+   MAIN PROVIDER SCHEMA
 -------------------------------------------------------- */
 const providerSchema = new Schema(
   {
@@ -47,7 +28,7 @@ const providerSchema = new Schema(
       ref: "User",
       required: [true, "User reference is required for provider"],
       unique: true,
-      index: true
+      index: true,
     },
 
     businessName: {
@@ -55,24 +36,22 @@ const providerSchema = new Schema(
       required: [true, "Business name is required"],
       trim: true,
       minlength: [2, "Business name must be at least 2 characters"],
-      maxlength: [100, "Business name cannot exceed 100 characters"]
+      maxlength: [100, "Business name cannot exceed 100 characters"],
     },
 
-   phone: {
-  type: String,
-  trim: true,
-  maxlength: [20, "Phone number seems too long"],
-  validate: {
-    validator: function (v) {
-      if (!v) return true; // allow empty phone
-      return v.length >= 7;
+    phone: {
+      type: String,
+      trim: true,
+      maxlength: [20, "Phone number seems too long"],
+      validate: {
+        validator: function (v) {
+          if (!v) return true;
+          return v.length >= 7;
+        },
+        message: "Phone number seems too short",
+      },
+      default: "",
     },
-    message: "Phone number seems too short"
-  },
-  default: ""
-},
-
-
 
     email: {
       type: String,
@@ -85,23 +64,22 @@ const providerSchema = new Schema(
           /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@(([^<>()[\]\.,;:\s@"]+\.)+[^<>()[\]\.,;:\s@"]{2,})$/i.test(
             v || ""
           ),
-        message: "Invalid email format"
-      }
+        message: "Invalid email format",
+      },
     },
 
-    address: { type: String, trim: true, maxlength: 200 },
-    city: { type: String, trim: true, default: "Miami", maxlength: 100 },
-    state: { type: String, trim: true, default: "FL", maxlength: 100 },
-    zip: { type: String, trim: true, maxlength: 20 },
-    country: { type: String, trim: true, default: "USA", maxlength: 100 },
-
+    address:  { type: String, trim: true, maxlength: 200 },
+    city:     { type: String, trim: true, default: "Miami", maxlength: 100 },
+    state:    { type: String, trim: true, default: "FL", maxlength: 100 },
+    zip:      { type: String, trim: true, maxlength: 20 },
+    country:  { type: String, trim: true, default: "USA", maxlength: 100 },
     category: { type: String, trim: true, maxlength: 100 },
 
     description: {
       type: String,
       trim: true,
       maxlength: 3000,
-      default: ""
+      default: "",
     },
 
     services: {
@@ -112,18 +90,33 @@ const providerSchema = new Schema(
           Array.isArray(arr) &&
           arr.length <= 100 &&
           arr.every((s) => typeof s === "string" && s.length <= 120),
-        message: "Services must be an array of short text labels"
-      }
+        message: "Services must be an array of short text labels",
+      },
     },
 
     website: { type: String, trim: true, maxlength: 200 },
+    socials:  { type: socialsSchema, default: () => ({}) },
 
-    socials: { type: socialsSchema, default: () => ({}) },
+    /* FIX #40 — geoLocation converted to proper GeoJSON Point
+       The old { lat, lng } flat schema could not be used with
+       MongoDB $geoNear or $near operators.
+       sparse: true on the index means providers without a
+       location are not indexed, keeping the index lean. */
+    geoLocation: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number], // [lng, lat]
+        default: undefined,
+      },
+    },
 
-    geoLocation: { type: geoLocationSchema, default: null },
-
-    logo: { type: String, trim: true, maxlength: 500 },
-    logoUrl: { type: String, trim: true, maxlength: 500 },
+    /* FIX #41 — logo removed, logoUrl is the single source of truth.
+       Having both caused inconsistent state in the pre-save hook. */
+    logoUrl:       { type: String, trim: true, maxlength: 500 },
     coverImageUrl: { type: String, trim: true, maxlength: 500 },
 
     gallery: {
@@ -131,49 +124,34 @@ const providerSchema = new Schema(
       default: [],
       validate: {
         validator: (arr) => Array.isArray(arr) && arr.length <= 50,
-        message: "Too many gallery images"
-      }
+        message: "Too many gallery images",
+      },
     },
 
+    isPublic:    { type: Boolean, default: true,  index: true },
+    isVerified:  { type: Boolean, default: false, index: true },
 
+    /* FIX #38 — isChoice added for "Helpio's Choice" feed tab.
+       Without this field the Choice tab always shows empty. */
+    isChoice:    { type: Boolean, default: false, index: true },
 
-
-    
-    isPublic: { type: Boolean, default: true, index: true },
-    isVerified: { type: Boolean, default: false, index: true },
     isSuspended: { type: Boolean, default: false, index: true },
 
+    stripe_account_id: { type: String, default: null, index: true },
 
+    // Dev seeding flags — exclude from production queries
+    simSeeded:    { type: Boolean, default: false, index: true },
+    simArchetype: { type: String, trim: true, maxlength: 50 },
 
-stripe_account_id: {
-  type: String,
-  default: null,
-  index: true
-},
-
-
-// --- Simulation / Dev Seeding Flags ---
-simSeeded: {
-  type: Boolean,
-  default: false,
-  index: true
-},
-
-
-simArchetype: {
-  type: String,
-  trim: true,
-  maxlength: 50
-},
-
-
-    rating: { type: Number, default: 0, min: 0, max: 5 },
-    completedJobs: { type: Number, default: 0, min: 0 }
+    /* FIX #39 — ratingCount added.
+       listingController selects ratingCount from populated
+       provider data — without this it always returned undefined. */
+    rating:        { type: Number, default: 0, min: 0, max: 5 },
+    ratingCount:   { type: Number, default: 0, min: 0 },
+    completedJobs: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
 );
-
-
 
 /* -------------------------------------------------------
    INDEXES
@@ -184,23 +162,24 @@ providerSchema.index({
   businessName: "text",
   city: "text",
   description: "text",
-  category: "text"
+  category: "text",
 });
+
+// FIX #40 — 2dsphere index for provider geo queries
+// sparse: true skips providers without coordinates
+providerSchema.index({ geoLocation: "2dsphere" }, { sparse: true });
 
 /* -------------------------------------------------------
    PRE-SAVE NORMALIZATION
+   FIX #41 — logo sync removed, logoUrl is single source
 -------------------------------------------------------- */
 providerSchema.pre("save", function (next) {
   if (typeof this.businessName === "string") this.businessName = this.businessName.trim();
-  if (typeof this.phone === "string") this.phone = this.phone.trim();
-  if (typeof this.email === "string") this.email = this.email.trim().toLowerCase();
-  if (typeof this.city === "string") this.city = this.city.trim();
-  if (typeof this.state === "string") this.state = this.state.trim();
-  if (typeof this.country === "string") this.country = this.country.trim();
-
-  if (!this.logo && this.logoUrl) this.logo = this.logoUrl;
-  if (!this.logoUrl && this.logo) this.logoUrl = this.logo;
-
+  if (typeof this.phone === "string")        this.phone = this.phone.trim();
+  if (typeof this.email === "string")        this.email = this.email.trim().toLowerCase();
+  if (typeof this.city === "string")         this.city = this.city.trim();
+  if (typeof this.state === "string")        this.state = this.state.trim();
+  if (typeof this.country === "string")      this.country = this.country.trim();
   next();
 });
 
@@ -212,11 +191,11 @@ providerSchema.set("toJSON", {
     ret.id = ret._id;
     delete ret.__v;
     return ret;
-  }
+  },
 });
 
 /* -------------------------------------------------------
-   EXPORTS — supports BOTH import styles
+   EXPORTS
 -------------------------------------------------------- */
 export const Provider = mongoose.model("Provider", providerSchema);
 export default Provider;

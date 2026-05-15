@@ -333,15 +333,14 @@ export const getListingsByCategory = async (req, res) => {
   try {
     const cat = trimString(req.params.cat || "", 200);
     const regex = new RegExp(cat, "i");
-
-   const listings = await Listing.find({
+const listings = await Listing.find({
   category: regex,
   isActive: true,
 })
   .populate("provider", "_id businessName phone isVerified rating")
- .select("title description price category images location businessName provider createdAt rating ratingCount")
+  .select("title description price category images location businessName provider createdAt rating ratingCount")
+  .limit(50)
   .lean();
-
 
     return res.status(200).json({
       success: true,
@@ -359,9 +358,6 @@ export const getListingsByCategory = async (req, res) => {
 export const createListing = async (req, res) => {
   try {
 
-console.log("🔥 CREATE LISTING HIT");
-console.log("REQ.USER:", req.user);
-console.log("REQ.BODY:", JSON.stringify(req.body, null, 2));
 
     const provider = await getProviderForUser(req.user?._id);
 

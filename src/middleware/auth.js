@@ -136,5 +136,68 @@ export const requireRole = (roles = []) => {
   };
 };
 
+
+
+/* -------------------------------------------------------
+   OPTIONAL AUTH — attaches req.user if token present
+   but passes through if no token (guest users).
+   Used by the feed route to support both auth and guest.
+-------------------------------------------------------- */
+export const optionalAuth = async (req, res, next) => {
+  try {
+    let token;
+
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith("Bearer ")
+    ) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+
+    if (!token && req.cookies?.token) {
+      token = req.cookies.token;
+    }
+
+    if (!token) return next();
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded.type !== "access") return next();
+    } catch {
+      return next();
+    }
+
+    if (!decoded?.id || !isValidId(decoded.id)) return next();
+
+    const user = await User.findById(decoded.id).select("-password -refreshToken");
+    if (!user) return next();
+
+    let providerId = null;
+    if (user.role === "provider") {
+      const provider = await Provider.findOne({ user: user._id }).select("_id");
+      providerId = provider?._id || null;
+    }
+
+    req.user = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      isVerifiedProvider: user.isVerifiedProvider,
+      providerId,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    req.userId = user._id;
+    next();
+  } catch (err) {
+    next();
+  }
+};
+
+
+
 export const admin = requireRole("admin");
 export const requireAdmin = admin;

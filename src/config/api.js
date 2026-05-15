@@ -5,38 +5,61 @@ export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
   "https://helpio-backend.onrender.com";
 
-console.log(
-  "🔗 API Base URL (fetch api.js) =>",
-  process.env.EXPO_PUBLIC_API_URL,
-  "| resolved =>",
-  API_BASE_URL
-);
+// FIX #7 — console.log removed. Never log the backend URL on app start.
 
 /* ------------------------------------------------------------------
-   Automatically loads the auth token from AsyncStorage for all calls
+   FIX #53 — Token memory cache
+   AsyncStorage.getItem is an async disk read — firing it on every
+   API call adds latency to every request. Cache in memory after
+   first read. Call clearTokenCache() on logout, setTokenCache() on login.
 -------------------------------------------------------------------*/
-async function getAuthHeader(passedToken) {
-  const token = passedToken || (await AsyncStorage.getItem("token"));
+let _cachedToken = null;
 
-  return token
-    ? { Authorization: `Bearer ${token}` }
-    : {};
+export const clearTokenCache = () => { _cachedToken = null; };
+export const setTokenCache = (token) => { _cachedToken = token; };
+
+async function getAuthHeader(passedToken) {
+  if (passedToken) return { Authorization: `Bearer ${passedToken}` };
+  if (_cachedToken) return { Authorization: `Bearer ${_cachedToken}` };
+
+  const token = await AsyncStorage.getItem("token");
+  if (token) _cachedToken = token;
+
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/* ------------------------------------------------------------------
+   FIX #5 — Timeout via AbortController (15s default)
+   FIX #6 — HTTP error handling — throws on non-ok responses
+-------------------------------------------------------------------*/
+async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.message || `HTTP ${res.status}`);
+    }
+    return res.json();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export const api = {
+  // FIX #4 — defaults.baseURL required by AllServicesScreen buildUrl()
+  defaults: {
+    baseURL: API_BASE_URL,
+  },
+
   async get(path, passedToken = null) {
     const headers = {
       Accept: "application/json",
       "Content-Type": "application/json",
       ...(await getAuthHeader(passedToken)),
     };
-
-    const res = await fetch(`${API_BASE_URL}${path}`, {
-      method: "GET",
-      headers,
-    });
-
-    return res.json();
+    return fetchWithTimeout(`${API_BASE_URL}${path}`, { method: "GET", headers });
   },
 
   async post(path, body = {}, passedToken = null) {
@@ -45,14 +68,11 @@ export const api = {
       "Content-Type": "application/json",
       ...(await getAuthHeader(passedToken)),
     };
-
-    const res = await fetch(`${API_BASE_URL}${path}`, {
+    return fetchWithTimeout(`${API_BASE_URL}${path}`, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
     });
-
-    return res.json();
   },
 
   async put(path, body = {}, passedToken = null) {
@@ -61,14 +81,11 @@ export const api = {
       "Content-Type": "application/json",
       ...(await getAuthHeader(passedToken)),
     };
-
-    const res = await fetch(`${API_BASE_URL}${path}`, {
+    return fetchWithTimeout(`${API_BASE_URL}${path}`, {
       method: "PUT",
       headers,
       body: JSON.stringify(body),
     });
-
-    return res.json();
   },
 
   async del(path, passedToken = null) {
@@ -77,12 +94,19 @@ export const api = {
       "Content-Type": "application/json",
       ...(await getAuthHeader(passedToken)),
     };
+    return fetchWithTimeout(`${API_BASE_URL}${path}`, { method: "DELETE", headers });
+  },
 
-    const res = await fetch(`${API_BASE_URL}${path}`, {
-      method: "DELETE",
+  async patch(path, body = {}, passedToken = null) {
+    const headers = {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(await getAuthHeader(passedToken)),
+    };
+    return fetchWithTimeout(`${API_BASE_URL}${path}`, {
+      method: "PATCH",
       headers,
+      body: JSON.stringify(body),
     });
-
-    return res.json();
   },
 };

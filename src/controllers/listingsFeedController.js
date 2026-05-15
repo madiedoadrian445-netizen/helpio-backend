@@ -100,29 +100,46 @@ function activeWindowCutoff() {
 
 async function getOrCreateSession({ userId, refresh }) {
   const now = new Date();
+  const expires_at = new Date(now.getTime() + SESSION_TTL_MINUTES * 60 * 1000);
 
-  // find valid existing session
-  let session = await FeedSession.findOne({
+  // FIX #24 — atomic upsert replaces find+create race condition.
+  // Two simultaneous requests for the same user could both find no
+  // session and both call create(), giving different seeds.
+  // findOneAndUpdate is atomic — only one document is ever created.
+  if (refresh) {
+    return await FeedSession.findOneAndUpdate(
+      { user_id: userId },
+      {
+        $set: {
+          session_id: uuidv4(),
+          seed: Math.floor(Math.random() * 1_000_000_000),
+          expires_at,
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  }
+
+  // Return existing valid session if one exists
+  const existing = await FeedSession.findOne({
     user_id: userId,
     expires_at: { $gt: now },
   }).sort({ expires_at: -1 });
 
-  if (refresh || !session) {
-    const session_id = uuidv4();
-    // seed should be an int
-    const seed = Math.floor(Math.random() * 1_000_000_000);
+  if (existing) return existing;
 
-    const expires_at = new Date(now.getTime() + SESSION_TTL_MINUTES * 60 * 1000);
-
-    session = await FeedSession.create({
-      user_id: userId,
-      session_id,
-      seed,
-      expires_at,
-    });
-  }
-
-  return session;
+  // No valid session — create atomically
+  return await FeedSession.findOneAndUpdate(
+    { user_id: userId, expires_at: { $lte: now } },
+    {
+      $set: {
+        session_id: uuidv4(),
+        seed: Math.floor(Math.random() * 1_000_000_000),
+        expires_at,
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
 }
 
 export const getFeed = async (req, res) => {
@@ -170,14 +187,6 @@ const maxRadiusMiles = Math.min(
       Math.max(1, parseInt(req.query.pageSize || String(PAGE_SIZE_DEFAULT), 10))
     );
 
-console.log("🔎 FEED DEBUG:", {
-  lat,
-  lng,
-  searchQuery,
-  category,
-  radiusMiles: maxRadiusMiles,
-  userId
-});
 
     // 1) session seed
     const session = await getOrCreateSession({ userId, refresh });
@@ -224,7 +233,7 @@ if (searchQuery) {
   // fallback: if search ran but found nothing, revert to normal feed
   if (matchedIds.length === 0) matchedIds = null;
 }
-console.log("🔍 SEARCH matchedIds:", matchedIds?.length || 0);
+
     // 2) geo + eligibility query (Listings)
     // assumes Listing has:
     // - provider_id
@@ -278,16 +287,16 @@ const pipeline = [
   { $limit: 2000 },
 ];
 
-console.log("Running feed aggregation...");
+
 
 
 let rawListings = await Listing.aggregate(pipeline);
 
-console.log("📍 GEO results (initial radius):", rawListings.length);
+
 
 if (searchQuery && rawListings.length === 0) {
- console.log("🔁 Expanding radius for search to 200 miles...");
-console.log("🔍 SEARCH matchedIds:", matchedIds?.length || 0);
+
+
 
   const expandedPipeline = [
     {
@@ -335,12 +344,12 @@ const listings = rawListings.filter((l) => l.provider != null);
 ];
 
 const stats = await ProviderDailyStat.find({
-  providerId: { $in: providerIds },
-  date: day,
+  provider_id: { $in: providerIds },
+  day,
 }).lean();
 
-    const statsMap = new Map();
-    for (const s of stats) statsMap.set(String(s.providerId), s);
+const statsMap = new Map();
+for (const s of stats) statsMap.set(String(s.provider_id), s);
 
 
     // 4) tier + weight + deterministic weighted key
@@ -386,23 +395,28 @@ const finalList = ranked;
 });
 
     // 8) impression logging (top N returned results only)
-   // 8) impression logging (top N returned results only)
-const impressionItems = pageItems
-  .slice(0, IMPRESSION_TOP_N)
- .filter((it) => it.provider);
+ 
+// TO:
+// FIX #27 — Only log impressions on page 1.
+// Pages 2, 3, 4 were previously incrementing impressions too,
+// inflating provider stats for every scroll paginate action.
+if (page === 1) {
+  const impressionItems = pageItems
+    .slice(0, IMPRESSION_TOP_N)
+    .filter((it) => it.provider);
 
-if (impressionItems.length) {
-  const bulk = impressionItems.map((it) => ({
-    updateOne: {
-    filter: { providerId: String(it.provider), date: day },
-      update: { $inc: { impressions: 1 } },
-      upsert: true,
-    },
-  }));
+  if (impressionItems.length) {
+    const bulk = impressionItems.map((it) => ({
+      updateOne: {
+        filter: { provider_id: String(it.provider), day },
+        update: { $inc: { impressions: 1 } },
+        upsert: true,
+      },
+    }));
 
-  await ProviderDailyStat.bulkWrite(bulk, { ordered: false });
+    await ProviderDailyStat.bulkWrite(bulk, { ordered: false });
+  }
 }
-
 
    const hasMore = end < total;
 
@@ -418,11 +432,12 @@ return res.json({
 });
   } catch (err) {
   console.error("🔥 FEED CRASH:", err);
-  return res.status(500).json({
-    success: false,
-    message: err.message,
-    stack: err.stack,
-  });
+return res.status(500).json({
+  success: false,
+  message: process.env.NODE_ENV === "production"
+    ? "Internal server error"
+    : err.message,
+});
 }
 
 };
