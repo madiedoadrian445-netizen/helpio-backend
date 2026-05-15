@@ -229,9 +229,11 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: getClientIp,
-  store: new RedisStore({
-    sendCommand: (...args) => redisClient.call(...args),
-    prefix: "rl:api:",
+  ...(process.env.REDIS_URL && {
+    store: new RedisStore({
+      sendCommand: (...args) => redisClient.call(...args),
+      prefix: "rl:api:",
+    }),
   }),
   handler: (req, res) =>
     res.status(429).json({
@@ -241,16 +243,17 @@ const apiLimiter = rateLimit({
 });
 
 
-
 app.use("/api", apiLimiter);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,
   keyGenerator: getClientIp,
-  store: new RedisStore({
-    sendCommand: (...args) => redisClient.call(...args),
-    prefix: "rl:auth:",
+  ...(process.env.REDIS_URL && {
+    store: new RedisStore({
+      sendCommand: (...args) => redisClient.call(...args),
+      prefix: "rl:auth:",
+    }),
   }),
   handler: (req, res) =>
     res.status(429).json({
@@ -258,8 +261,6 @@ const authLimiter = rateLimit({
       message: "Too many authentication attempts. Please try again later.",
     }),
 });
-
-
 
 app.use("/api/auth", authLimiter);
 
@@ -270,9 +271,11 @@ const feedLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,
   keyGenerator: getClientIp,
-  store: new RedisStore({
-    sendCommand: (...args) => redisClient.call(...args),
-    prefix: "rl:feed:",
+  ...(process.env.REDIS_URL && {
+    store: new RedisStore({
+      sendCommand: (...args) => redisClient.call(...args),
+      prefix: "rl:feed:",
+    }),
   }),
   handler: (req, res) =>
     res.status(429).json({
@@ -282,7 +285,6 @@ const feedLimiter = rateLimit({
 });
 
 
-
 app.use("/api/feed", feedLimiter);
 const paymentLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -290,9 +292,11 @@ const paymentLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: getClientIp,
-  store: new RedisStore({
-    sendCommand: (...args) => redisClient.call(...args),
-    prefix: "rl:payment:",
+  ...(process.env.REDIS_URL && {
+    store: new RedisStore({
+      sendCommand: (...args) => redisClient.call(...args),
+      prefix: "rl:payment:",
+    }),
   }),
   handler: (req, res) =>
     res.status(429).json({
