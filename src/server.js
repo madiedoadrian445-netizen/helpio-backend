@@ -10,7 +10,7 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import mongoSanitize from "express-mongo-sanitize";
 import xss from "xss-clean";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import cron from "node-cron";
 import mongoose from "mongoose";
 import { v4 as uuidv4 } from "uuid";
@@ -221,7 +221,7 @@ app.use(
    scaling. In-memory store is per-instance only.
 ---------------------------------------------------------- */
 const getClientIp = (req) =>
-  req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.ip;
+  ipKeyGenerator(req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.ip);
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
