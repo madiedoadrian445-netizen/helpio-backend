@@ -402,8 +402,8 @@ const finalList = ranked;
 // inflating provider stats for every scroll paginate action.
 if (page === 1) {
   const impressionItems = pageItems
-    .slice(0, IMPRESSION_TOP_N)
-    .filter((it) => it.provider);
+  .slice(0, IMPRESSION_TOP_N)
+  .filter((it) => it.provider && it.provider !== "null" && it.provider !== "undefined");
 
   if (impressionItems.length) {
     const bulk = impressionItems.map((it) => ({
