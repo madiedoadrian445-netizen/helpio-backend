@@ -39,6 +39,14 @@ const providerSchema = new Schema(
       maxlength: [100, "Business name cannot exceed 100 characters"],
     },
 
+    // NEW — short headline shown under business name on profile
+    tagline: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+      default: "",
+    },
+
     phone: {
       type: String,
       trim: true,
@@ -73,7 +81,22 @@ const providerSchema = new Schema(
     state:    { type: String, trim: true, default: "FL", maxlength: 100 },
     zip:      { type: String, trim: true, maxlength: 20 },
     country:  { type: String, trim: true, default: "USA", maxlength: 100 },
+
+    // Single primary category (legacy — kept for feed filtering)
     category: { type: String, trim: true, maxlength: 100 },
+
+    // NEW — multi-select service categories for provider profile display
+    categories: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: (arr) =>
+          Array.isArray(arr) &&
+          arr.length <= 20 &&
+          arr.every((c) => typeof c === "string" && c.length <= 60),
+        message: "Categories must be an array of up to 20 short labels",
+      },
+    },
 
     description: {
       type: String,
@@ -97,11 +120,7 @@ const providerSchema = new Schema(
     website: { type: String, trim: true, maxlength: 200 },
     socials:  { type: socialsSchema, default: () => ({}) },
 
-    /* FIX #40 — geoLocation converted to proper GeoJSON Point
-       The old { lat, lng } flat schema could not be used with
-       MongoDB $geoNear or $near operators.
-       sparse: true on the index means providers without a
-       location are not indexed, keeping the index lean. */
+    /* FIX #40 — geoLocation converted to proper GeoJSON Point */
     geoLocation: {
       type: {
         type: String,
@@ -114,8 +133,7 @@ const providerSchema = new Schema(
       },
     },
 
-    /* FIX #41 — logo removed, logoUrl is the single source of truth.
-       Having both caused inconsistent state in the pre-save hook. */
+    /* FIX #41 — logoUrl is the avatar, coverImageUrl is the banner */
     logoUrl:       { type: String, trim: true, maxlength: 500 },
     coverImageUrl: { type: String, trim: true, maxlength: 500 },
 
@@ -131,8 +149,7 @@ const providerSchema = new Schema(
     isPublic:    { type: Boolean, default: true,  index: true },
     isVerified:  { type: Boolean, default: false, index: true },
 
-    /* FIX #38 — isChoice added for "Helpio's Choice" feed tab.
-       Without this field the Choice tab always shows empty. */
+    /* FIX #38 — isChoice for "Helpio's Choice" feed tab */
     isChoice:    { type: Boolean, default: false, index: true },
 
     isSuspended: { type: Boolean, default: false, index: true },
@@ -143,9 +160,7 @@ const providerSchema = new Schema(
     simSeeded:    { type: Boolean, default: false, index: true },
     simArchetype: { type: String, trim: true, maxlength: 50 },
 
-    /* FIX #39 — ratingCount added.
-       listingController selects ratingCount from populated
-       provider data — without this it always returned undefined. */
+    /* FIX #39 — ratingCount for feed card display */
     rating:        { type: Number, default: 0, min: 0, max: 5 },
     ratingCount:   { type: Number, default: 0, min: 0 },
     completedJobs: { type: Number, default: 0, min: 0 },
@@ -165,13 +180,11 @@ providerSchema.index({
   category: "text",
 });
 
-// FIX #40 — 2dsphere index for provider geo queries
-// sparse: true skips providers without coordinates
+// FIX #40 — 2dsphere index for geo queries
 providerSchema.index({ geoLocation: "2dsphere" }, { sparse: true });
 
 /* -------------------------------------------------------
    PRE-SAVE NORMALIZATION
-   FIX #41 — logo sync removed, logoUrl is single source
 -------------------------------------------------------- */
 providerSchema.pre("save", function (next) {
   if (typeof this.businessName === "string") this.businessName = this.businessName.trim();
@@ -180,6 +193,7 @@ providerSchema.pre("save", function (next) {
   if (typeof this.city === "string")         this.city = this.city.trim();
   if (typeof this.state === "string")        this.state = this.state.trim();
   if (typeof this.country === "string")      this.country = this.country.trim();
+  if (typeof this.tagline === "string")      this.tagline = this.tagline.trim();
   next();
 });
 
